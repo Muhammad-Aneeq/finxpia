@@ -82,3 +82,28 @@ assertions; installed the CLI and ran real offline evals to confirm which mechan
 `finxpia_tests.yaml` for zero-Python users, and obedience detection as a `type: python`
 assertion. All three verified running offline against the built-in `echo` provider. The README
 says "dataset + config recipe", never "plugin".
+
+---
+
+## B4 · The CI workflow has never executed on GitHub Actions
+**Status:** WORKED-AROUND · opened 2026-09-03 (Phase 4)
+
+**What.** `.github/workflows/ci.yml` defines six jobs. None of them has ever run on GitHub
+Actions, because this repository has no git remote — `git remote -v` returns nothing.
+
+**Tried.** Verified each job a different way instead: every job's command set was executed
+locally and passes (lint/typecheck; tests + corpus integrity; the eval gate; the promptfoo
+packaging smoke tests against the real CLI; the PyRIT packaging tests against the real loader;
+the dashboard build + render tests). Also confirmed by construction that no job reads a secret.
+
+**Needed.** A remote, and one push.
+
+**Workaround.** The commands are the same in the workflow and locally, so the substance is
+verified; what is unverified is the GitHub Actions plumbing around them — action versions, the
+`setup-uv` cache, `npm ci` on a clean checkout, and the `PROMPTFOO_PYTHON` path expansion under
+`${{ github.workspace }}`. Expect ordinary first-run friction there. The README STATUS section
+states this distinction rather than implying CI is green.
+
+**Blocks:** nothing. It is a verification gap, stated rather than glossed.
+**One-line fix:** `git remote add origin <url> && git push -u origin main` and fix whatever the
+first run surfaces.

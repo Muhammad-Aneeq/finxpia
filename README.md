@@ -256,8 +256,13 @@ Honest, and kept current with [PLAN.md](PLAN.md) and [BLOCKERS.md](BLOCKERS.md).
 **What is verified.** 205 tests: 180 Python + 25 dashboard render tests. The corpus regenerates
 byte-identically from its seed and is hash-verified. Both delivery paths are exercised against
 the **real** installed tools — Promptfoo 0.122.2 and PyRIT 1.0.1 — offline, with no API key. The
-dashboard builds statically and renders a real 120-case run across all five screens. All six CI
-jobs run without a secret.
+dashboard builds statically and renders a real 120-case run across all five screens.
+
+Every one of the six CI jobs' command sets has been run locally and passes, and none of them
+needs a secret. To be exact about what that does *not* prove: this repository has **no git
+remote yet**, so `.github/workflows/ci.yml` has never actually executed on GitHub Actions. Expect
+the usual first-run friction of a new workflow (action versions, cache keys) even though the
+underlying commands are green.
 
 **⚠️ What is NOT verified — the one thing to know.** No `OPENAI_API_KEY` was available in this
 environment, so **both validation gates have only ever run against a scripted `MockLLM`.** They
