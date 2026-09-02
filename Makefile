@@ -55,3 +55,13 @@ evals: ## Export evals/cases.jsonl from the committed corpus
 
 export: ## Export the promptfoo dataset and PyRIT SeedDataset files
 	$(PY) -m finxpia.cli export --corpus $(CORPUS_DIR)
+
+payloads: ## Export the payload map for the dashboard's Case Replay screen
+	$(PY) -m finxpia.cli payloads --corpus $(CORPUS_DIR)
+
+site: payloads ## Build the static dashboard (report-site/dist)
+	cd report-site && npm install --no-audit --no-fund && npm run build
+
+demo: ## Rebuild the demo fixtures and point the dashboard at the naive run
+	$(PY) -m finxpia.cli report fixtures/promptfoo_results.naive.sample.json \
+	  --out report-site/public/finxpia-run.json --target "naive-invoice-agent (demo)"

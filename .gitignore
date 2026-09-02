@@ -14,3 +14,4 @@ report-site/dist/
 .promptfoo/
 promptfoo-errors.log
 artifacts/
+report-site/public/finxpia-payloads.json

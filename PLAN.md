@@ -270,18 +270,19 @@ Three findings, all fixed and regression-tested — see **D9**, **D10** and the 
 *Spec 05 §13 W4: "report dashboard + demo (naive vs guardrailed) + responsible-use README + launch"*
 
 **Tasks**
-- [ ] Scaffold `report-site/` (Vite + React + TS + Tailwind + Recharts), static build, no backend
-- [ ] `src/aurora/` — spec 00 A2 tokens + components vendored locally (see D6)
-- [ ] Screen 1 **Summary** — risk grade, attack-success %, FPR, case counts
-- [ ] Screen 2 **Heatmap** — category × severity, click → cases
-- [ ] Screen 3 **Case Replay** — payload, injection point, agent response, obeyed/refused verdict
-- [ ] Screen 4 **FPR panel** — benign cases wrongly blocked
-- [ ] Screen 5 **Export** — compliance PDF with methodology + timestamps
-- [ ] `SyntheticDataBanner` — "⚠️ All data is synthetic" on every screen
-- [ ] Demo: naive vs guarded agent delta run → `fixtures/finxpia-run.sample.json`
-- [ ] `README.md` — responsible-use first, config recipe, "why benign twins matter", EU AI Act note, honest STATUS
-- [ ] `LICENSE` (MIT + authorized-testing rider), `MODEL_COSTS.md`, `docs/architecture.md`
-- [ ] `FINAL_REPORT.md`; PLAN.md fully ticked or BLOCKED-marked
+- [x] Scaffold `report-site/` (Vite 8 + React 19 + TS 7 + Tailwind 4 + Recharts 3), static build, no backend
+- [x] `src/aurora/` — spec 00 A2 tokens + components vendored locally (see D6)
+- [x] Screen 1 **Summary** — risk grade, attack-success %, FPR, case counts, plain-language reading
+- [x] Screen 2 **Heatmap** — category × severity, click → cases, empty bands explained not hidden
+- [x] Screen 3 **Case Replay** — payload, injection point, agent response, verdict + scoring trace
+- [x] Screen 4 **FPR panel** — benign cases wrongly blocked, per-shape breakdown, soft flags
+- [x] Screen 5 **Export** — compliance PDF: methodology, timestamps, corpus hash, findings, limits
+- [x] `SyntheticDataBanner` — "⚠️ All data is synthetic" on every screen
+- [x] Demo: real 120-case promptfoo runs → `fixtures/finxpia-run.{naive,guarded}.sample.json`
+- [x] `README.md` — responsible-use first, config recipe, benign-twins section, EU AI Act note, honest STATUS
+- [x] `LICENSE` (MIT + authorized-testing rider), `MODEL_COSTS.md`, `docs/architecture.md`, `docs/responsible_use.md`
+- [x] 25 dashboard render tests + CI job; `finxpia payloads` for Case Replay
+- [x] `FINAL_REPORT.md`; PLAN.md fully ticked or BLOCKED-marked
 
 **Acceptance criteria (spec-quoted)**
 - spec 05 §9: five screens exactly — "(1) Summary (risk grade, attack-success %, FPR, case counts) · (2) Heatmap (category × severity, click → cases) · (3) Case Replay… · (4) FPR panel… · (5) Export (compliance PDF with methodology + timestamps)"
@@ -292,6 +293,24 @@ Three findings, all fixed and regression-tested — see **D9**, **D10** and the 
 **Test plan** — `npm run build` succeeds; built SPA renders the fixture run end to end; PDF export produces a file with methodology + timestamps; CI builds the site.
 
 **Risk note** — Spec 05 §10's demo target ("vs Project 02-backed naive invoice agent AND vs Project 06 guardrailed") is unavailable: this repo contains only Project 05. Mitigation per D7 — ship a local naive *and* guarded agent so the headline delta ("a naive agent obeyed it; a guardrailed one didn't", spec 05 §15) is still demonstrable in-repo, and say so plainly in README STATUS.
+
+**Outcome (2026-09-03): ✅ COMPLETE.** All five specced screens built; the dashboard builds
+statically (no backend) and renders a **real** 120-case promptfoo run end to end. 25 render tests
+mount the actual app against the committed fixture and walk every screen — a build that compiles
+but renders `undefined` passes `tsc` and fails those. The compliance PDF exports via the
+browser's own print-to-PDF from a print-optimised view, so no PDF library is bundled and an
+auditor can reproduce the output themselves.
+
+Demo delta, from real runs: naive **grade F** (60/60 obeyed, worst severity `critical`) vs
+guarded **grade A** (0/60 obeyed) — with **0/60 false blocks on both**, which is what makes the
+guarded result meaningful rather than just quiet.
+
+Two things worth noting from this phase:
+* The Chrome extension was not connected, so visual verification by screenshot was not possible.
+  Substituted something more durable: jsdom render tests that assert the actual numbers, the
+  click-through, the mock-mode labelling and the load-failure paths, and that run in CI.
+* `vitest`'s default `forks` pool times out spawning workers on this checkout (the repo path
+  contains a space); `pool: "threads"` is set with a comment explaining why.
 
 ---
 
@@ -347,12 +366,12 @@ Promptfoo populates `row["error"]` with the **assertion failure reason** for eve
 
 ## 6. DEFINITION OF DONE (checklist, spec 00 E + spec 05)
 
-- [ ] Corpus generates deterministically from seed; ~60 attacks + ~60 twins, all schema-valid, hash-versioned
-- [ ] Promptfoo integration + PyRIT export pass packaging smoke tests in CI (no API key needed)
-- [ ] Both validation gates implemented; MockLLM-proven with real runs PENDING in BLOCKERS.md; `make validate` ready
-- [ ] Dashboard builds statically, renders a full fixture run end to end, PDF export works
-- [ ] Naive demo agent exists (validity gate + launch demo); guarded twin gives the delta
-- [ ] README: responsible-use first, benign-twins section, EU AI Act factual note, honest STATUS
-- [ ] LICENSE with authorized-testing restriction; "⚠️ All data is synthetic" banner
-- [ ] `evals/` + CI gate present (spec 00 brand requirement)
-- [ ] PLAN.md fully ticked or BLOCKED-marked; PROGRESS.md current; FINAL_REPORT.md written
+- [x] Corpus generates deterministically from seed; **60** attacks + **60** twins, all schema-valid, hash-versioned (`20260903.f7af446d3dd6`)
+- [x] Promptfoo integration + PyRIT export pass packaging smoke tests in CI (no API key needed) — real CLI + real PyRIT loader
+- [x] Both validation gates implemented; MockLLM-proven with real runs **PENDING** in BLOCKERS.md B1; `make validate` ready
+- [x] Dashboard builds statically, renders a full **real** run end to end, PDF export works
+- [x] Naive demo agent exists (validity gate + launch demo); guarded twin gives the delta (F vs A)
+- [x] README: responsible-use first, benign-twins section, EU AI Act factual note, honest STATUS
+- [x] LICENSE with authorized-testing restriction; "⚠️ All data is synthetic" banner on every screen
+- [x] `evals/` + CI gate present (spec 00 brand requirement) — 6 jobs, none needing a secret
+- [x] PLAN.md fully ticked or BLOCKED-marked; PROGRESS.md current; FINAL_REPORT.md written

@@ -199,3 +199,57 @@ through"; `A` now requires a zero attack-success rate, because one obeyed inject
 path into an AP pipeline.
 
 **Next:** Phase 4 — the dashboard (5 screens + compliance PDF), the demo, and the full README.
+
+---
+
+## Phase 4 · Dashboard, demo, docs — ✅ COMPLETE (2026-09-03)
+
+**Done**
+- `report-site/` — static Vite 8 + React 19 + TS 7 + Tailwind 4 + Recharts 3 SPA. No backend.
+  `base: "./"` so the build works from a file path, a subdirectory or GitHub Pages unchanged.
+- `src/aurora/` — spec 00 A2 tokens vendored (navy `#0B1E3B`, emerald `#10B981`, frosted glass,
+  Space Grotesk / Inter) plus the components needed: Card, MetricTile, StatBadge, RiskTag,
+  ConfidencePill, RiskGradeBadge, EvidencePanel, TraceTimeline, EmptyState, SyntheticDataBanner.
+  Fonts are a system stack, never a CDN fetch, so the dashboard renders offline and in print.
+- All five specced screens: **Summary** (grade, both rates, per-vector/goal charts, and a
+  plain-language reading of what the numbers mean together), **Heatmap** (full 5×4 grid,
+  click-through to cases, empty bands explained rather than omitted), **Case Replay** (payload,
+  injection point, verbatim response, and the scoring trace), **FPR panel** (why twins matter,
+  per-shape breakdown, soft flags separated), **Export** (print-optimised compliance report).
+- Compliance PDF via the browser's own print-to-PDF from a dedicated print view. No PDF library
+  bundled: keeps the dashboard dependency-free, and the output is reproducible by anyone holding
+  the same run file.
+- `finxpia payloads` — exports the case_id → document map for Case Replay. Payloads deliberately
+  do not live in the run report; duplicating 120 documents into every report would bloat an
+  artifact meant to be filed. When the map is absent the screen says so and prints the command.
+- 25 dashboard render tests (vitest + jsdom + Testing Library) mounting the real app against the
+  committed fixture and walking all five screens.
+- Docs: `docs/responsible_use.md`, `docs/architecture.md`, `MODEL_COSTS.md`, full `README.md`,
+  `FINAL_REPORT.md`.
+
+**Numbers**
+- 205 tests total: 180 Python + 25 dashboard. All green. ruff, ruff format, mypy clean.
+- Dashboard build: 604 kB JS (177 kB gzipped), dominated by Recharts. Acceptable for a static
+  report; noted rather than optimised.
+- Demo, from real 120-case promptfoo runs: naive **grade F** (60/60 obeyed, worst severity
+  `critical`, 0/60 false blocks) vs guarded **grade A** (0/60 obeyed, 0/60 false blocks).
+
+**Verification note — no screenshot**
+The Chrome extension was not connected, so I could not visually verify the rendered dashboard.
+Rather than claim a visual check I did not make, I substituted something more durable: jsdom
+render tests that assert the actual rendered numbers (grade F, 100.0%, 60 of 60), the heatmap
+click-through, the disabled empty cells, the mock-mode labelling, the print wiring, and all three
+load-failure paths. Those run in CI on every push; a screenshot would not have.
+
+**Problems hit**
+1. Recharts 3 tightened its `Tooltip` formatter types (value widened to `ValueType | undefined`).
+   Replaced two inline formatters with one narrowing helper.
+2. `vitest`'s default `forks` pool times out spawning workers on this checkout — most likely the
+   space in the repo path. `pool: "threads"` set, with a comment saying why.
+3. Five of my own render-test selectors were ambiguous or matched prose split across `<strong>` /
+   `<em>` tags. Fixed with `getAllByText` where duplication is intended, `getByRole("heading")`
+   where nav and content share a label, and a flattened-`textContent` matcher for emphasised
+   sentences. All app bugs, none — but worth noting they were *test* bugs, not app bugs.
+
+**Next:** nothing in the plan. The one outstanding item is B1: the real gate runs, which need an
+`OPENAI_API_KEY`. See FINAL_REPORT.md §3 and §5.

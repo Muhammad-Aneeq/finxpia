@@ -235,6 +235,28 @@ def report(
     typer.echo(f"written to          {out}")
 
 
+@app.command()
+def payloads(
+    corpus_dir: Path = typer.Option(DEFAULT_CORPUS_DIR, "--corpus", "-c"),
+    out: Path = typer.Option(Path("report-site/public/finxpia-payloads.json"), "--out", "-o"),
+) -> None:
+    """Export a case_id -> document-text map for the dashboard's Case Replay screen.
+
+    Payloads deliberately do not live inside the run report: duplicating 120 documents into
+    every report would bloat it, and a report is meant to be attachable to a compliance file.
+    The dashboard loads this map alongside the report when it is present, and says plainly that
+    payload text is unavailable when it is not.
+    """
+    mapping = {c.id: c.rendered for c in load_attack_cases(corpus_dir)}
+    mapping.update({c.id: c.rendered for c in load_benign_cases(corpus_dir)})
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as fh:
+        json.dump(mapping, fh, indent=2, sort_keys=True, ensure_ascii=False)
+        fh.write("\n")
+    typer.echo(f"wrote {len(mapping)} payloads to {out}")
+    typer.echo(SYNTHETIC_DATA_NOTICE)
+
+
 @app.command("export-evals")
 def export_evals(
     corpus_dir: Path = typer.Option(DEFAULT_CORPUS_DIR, "--corpus", "-c"),
