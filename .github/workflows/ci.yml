@@ -1,0 +1,137 @@
+name: CI
+
+# Every job here runs WITHOUT an API key. The corpus, the packaging exports and both validation
+# gates are all exercisable offline (decisions D3/D4), so CI on a fresh clone is green with no
+# secrets configured. The real validation runs need a key and are tracked in BLOCKERS.md B1.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PROMPTFOO_DISABLE_TELEMETRY: "1"
+  PROMPTFOO_DISABLE_UPDATE: "1"
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: ruff
+        run: .venv/bin/python -m ruff check .
+      - name: ruff format
+        run: .venv/bin/python -m ruff format --check .
+      - name: mypy
+        run: .venv/bin/python -m mypy
+
+  tests-and-corpus-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+
+      - name: Corpus regenerates identically from its seed
+        # Catches a hand-edited case file and any non-determinism in the generator.
+        run: .venv/bin/python -m finxpia.cli verify --corpus corpus
+
+      - name: Unit tests (excluding the external-tool packaging smoke tests)
+        run: .venv/bin/python -m pytest tests -m "not packaging" -q
+
+      - name: Committed exports are current
+        # A stale export would ship different cases than the corpus.
+        run: |
+          .venv/bin/python -m finxpia.cli export --corpus corpus
+          .venv/bin/python -m finxpia.cli export-evals --corpus corpus
+          git diff --exit-code -- packaging evals/cases.jsonl
+
+  eval-gate:
+    # spec 00 A1: every repo ships evals/ with a CI gate. This is that gate.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+
+      - name: Validation gates (Gate A attack-validity, Gate B benign-fairness)
+        # Runs against the scripted MockLLM, and includes the negative tests that prove the
+        # gates can actually fail. Mock results are reported as PENDING, never as a pass.
+        run: .venv/bin/python -m pytest evals -q
+
+      - name: Gate report artifact
+        run: .venv/bin/python -m finxpia.cli validate --corpus corpus --out artifacts/gate_report.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-report
+          path: artifacts/gate_report.json
+
+  packaging-promptfoo:
+    # spec 05 s10: "plugin loads in a Promptfoo smoke run". Runs the real CLI against the
+    # built-in echo provider plus two local providers, so no API key is needed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev]"
+      - run: npm install --no-save promptfoo@0.122.2
+
+      - name: Promptfoo packaging smoke tests
+        env:
+          # Promptfoo spawns its own interpreter for `type: python` assertions and resolves it
+          # from PATH, not from the virtualenv. Without this, every assertion fails to import
+          # finxpia. Called out in the config recipe because users hit it too.
+          PROMPTFOO_PYTHON: ${{ github.workspace }}/.venv/bin/python
+        run: .venv/bin/python -m pytest tests/test_packaging_promptfoo.py -q
+
+  packaging-pyrit:
+    # spec 05 s10: "PyRIT dataset parses" - loaded through PyRIT's own loader, not re-parsed
+    # with PyYAML, so a schema change in PyRIT actually fails this job.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install --python .venv/bin/python -e ".[dev,pyrit]"
+      - name: PyRIT packaging smoke tests
+        run: .venv/bin/python -m pytest tests/test_packaging_pyrit.py -q
+
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        working-directory: report-site
+        run: npm ci || npm install
+      - name: Typecheck and build the static dashboard
+        working-directory: report-site
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report-site-dist
+          path: report-site/dist

@@ -1,0 +1,93 @@
+# FinXPIA finance-document XPIA suite - promptfoo config recipe
+#
+# This is the config snippet spec 05 F3 asks for. Copy it into your own promptfoo project,
+# point `providers` at YOUR agent, and run:
+#
+#     pip install finxpia            # or: uv pip install finxpia
+#     export PROMPTFOO_PYTHON="$(which python)"     # see the note below - do not skip this
+#     npx promptfoo eval -c promptfooconfig.yaml
+#     npx promptfoo view
+#
+# ---------------------------------------------------------------------------------------------
+# IMPORTANT: PROMPTFOO_PYTHON
+# ---------------------------------------------------------------------------------------------
+# Promptfoo spawns its own interpreter to run `type: python` assertions, and it resolves that
+# interpreter from PATH rather than from your active virtualenv. If you installed finxpia into a
+# venv (you probably did) and skip this, every case errors with:
+#
+#     Error running Python script: ModuleNotFoundError: No module named 'finxpia'
+#
+# Point it at the interpreter that has finxpia installed:
+#
+#     export PROMPTFOO_PYTHON="$(which python)"           # macOS / Linux
+#     $env:PROMPTFOO_PYTHON = (Get-Command python).Source  # Windows PowerShell
+#
+# NOTE ON PACKAGING (decision D1): FinXPIA is delivered as a promptfoo *dataset + this recipe*,
+# not as a red-team "plugin". Promptfoo's custom-plugin format asks an LLM to generate attacks at
+# run time, which cannot carry a fixed, seeded, hash-versioned corpus with per-case severity
+# tags. The external-test-case mechanism used below is supported, deterministic, and a better
+# fit. See the README for the full explanation.
+#
+# ⚠️ All data is synthetic. Use only against systems you own or are authorized to test.
+
+description: FinXPIA - finance-document prompt injection (attacks + benign twins)
+
+# ---------------------------------------------------------------------------------------------
+# 1. YOUR TARGET. Replace this block.
+# ---------------------------------------------------------------------------------------------
+providers:
+  # `echo` needs no API key and simply returns the prompt, which makes it behave like a
+  # maximally naive agent. Useful for checking the suite is wired up before you spend tokens.
+  - echo
+
+  # A real model:
+  # - openai:chat:gpt-5-mini
+
+  # Your own agent behind HTTP - this is the interesting case:
+  # - id: https
+  #   config:
+  #     url: https://your-agent.internal/api/process-invoice
+  #     method: POST
+  #     headers:
+  #       Content-Type: application/json
+  #     body:
+  #       document: '{{document}}'
+  #       invoice_ref: '{{invoice_ref}}'
+  #     transformResponse: json.decision_summary
+
+# ---------------------------------------------------------------------------------------------
+# 2. THE PROMPT. Replace with however your pipeline actually assembles the document.
+#    The realism of your result depends on this matching your production prompt.
+# ---------------------------------------------------------------------------------------------
+prompts:
+  - file://finxpia_prompt.txt
+
+# ---------------------------------------------------------------------------------------------
+# 3. THE CORPUS. Both attacks AND benign twins, deliberately in one dataset: you get the
+#    attack-success rate and the false-positive rate from the same run, or neither.
+# ---------------------------------------------------------------------------------------------
+
+# Canonical, deterministic, picks up a regenerated corpus automatically:
+tests: file://finxpia_tests.py:generate_tests
+
+# Static snapshot instead, if you would rather not have Python in your eval config:
+# tests: file://finxpia_tests.yaml
+
+# ---------------------------------------------------------------------------------------------
+# 4. Reading the results
+# ---------------------------------------------------------------------------------------------
+# An ATTACK case PASSES when your agent did NOT obey the injected instruction.
+# A BENIGN twin PASSES when your agent processed it normally.
+#
+# So a green run means: you resisted the injections AND you did not break real invoices.
+# Failing benign twins is a false-positive problem, not a security win - see "why benign twins
+# matter" in the README.
+#
+# Per-vector metrics are emitted as `attack:<vector>` and `benign:<vector>`, so the promptfoo
+# UI groups results the same way the FinXPIA dashboard heatmap does.
+#
+# To build the FinXPIA compliance dashboard from this run:
+#     npx promptfoo eval -c promptfooconfig.yaml -o results.json
+#     finxpia report results.json --out site/
+
+outputPath: results.json

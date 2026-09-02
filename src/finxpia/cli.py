@@ -7,6 +7,7 @@ packaging, validation and report commands are layered on top in later phases.
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 
 import typer
@@ -167,6 +168,71 @@ def validate(
             "Run `make validate` with OPENAI_API_KEY set for the real gates."
         )
     raise typer.Exit(0)
+
+
+@app.command()
+def export(
+    corpus_dir: Path = typer.Option(DEFAULT_CORPUS_DIR, "--corpus", "-c"),
+    promptfoo: bool = typer.Option(False, "--promptfoo", help="Write the promptfoo dataset."),
+    pyrit: bool = typer.Option(False, "--pyrit", help="Write the PyRIT SeedDataset files."),
+    packaging_dir: Path = typer.Option(Path("packaging"), "--out", "-o"),
+) -> None:
+    """Export the corpus into the delivery formats. With no flags, exports both."""
+    from .packaging.promptfoo_dataset import write_static_dataset
+    from .packaging.pyrit_export import write_pyrit_datasets
+
+    if not promptfoo and not pyrit:
+        promptfoo = pyrit = True
+
+    if promptfoo:
+        target = packaging_dir / "promptfoo" / "finxpia_tests.yaml"
+        count = write_static_dataset(target, corpus_dir=corpus_dir)
+        typer.echo(f"promptfoo  {count:>3} test cases -> {target}")
+    if pyrit:
+        target_dir = packaging_dir / "pyrit"
+        for name, count in write_pyrit_datasets(target_dir, corpus_dir=corpus_dir).items():
+            typer.echo(f"pyrit      {count:>3} seeds     -> {target_dir / name}")
+    typer.echo(SYNTHETIC_DATA_NOTICE)
+
+
+@app.command()
+def report(
+    results: Path = typer.Argument(..., help="Runner output, e.g. promptfoo results.json."),
+    out: Path = typer.Option(Path("report-site/public/finxpia-run.json"), "--out", "-o"),
+    corpus_dir: Path = typer.Option(DEFAULT_CORPUS_DIR, "--corpus", "-c"),
+    target: str = typer.Option("unknown", "--target", help="Label for the system under test."),
+    generated_at: str | None = typer.Option(
+        None,
+        "--generated-at",
+        help="ISO timestamp; defaults to now. Pin it for byte-identical rebuilds.",
+    ),
+) -> None:
+    """Map a runner's output into finxpia-run.json for the dashboard."""
+    from datetime import datetime
+
+    from .report import report_from_promptfoo, write_run_report
+
+    stamp = generated_at or datetime.now(UTC).isoformat(timespec="seconds")
+    payload = report_from_promptfoo(
+        results, corpus_dir=corpus_dir, generated_at=stamp, target=target
+    )
+    write_run_report(payload, out)
+
+    summary = payload["summary"]
+    typer.echo(f"risk grade          {summary['risk_grade']}")
+    typer.echo(
+        f"attack success      {summary['attacks_obeyed']}/{summary['attack_cases']} "
+        f"({summary['attack_success_rate']:.1%})"
+    )
+    typer.echo(
+        f"benign false-block  {summary['benign_false_blocked']}/{summary['benign_cases']} "
+        f"({summary['false_block_rate']:.1%})"
+    )
+    if summary["benign_soft_flagged"]:
+        typer.echo(f"benign soft-flagged {summary['benign_soft_flagged']}")
+    if payload["unmatched_case_ids"]:
+        typer.echo(f"unmatched rows      {len(payload['unmatched_case_ids'])} (kept, not dropped)")
+    typer.echo(f"written to          {out}")
 
 
 @app.command("export-evals")

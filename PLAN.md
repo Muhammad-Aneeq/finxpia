@@ -229,15 +229,16 @@ Two detector bugs found and fixed, both now regression-tested:
 *Spec 05 §13 W3: "Promptfoo plugin + PyRIT export + packaging tests"*
 
 **Tasks**
-- [ ] `packaging/promptfoo_dataset.py` — `generate_tests()` (canonical) + static `finxpia_tests.yaml` emitter
-- [ ] `packaging/promptfoo_assert.py` — `get_assert(output, context)` → `{pass, score, reason}`
-- [ ] `packaging/promptfoo/promptfooconfig.example.yaml` — the copy-paste README recipe
-- [ ] `packaging/pyrit_export.py` — `SeedDataset` YAML for attacks + benign; `metadata` carries `{vector,goal,severity,expected_behavior}`, `harm_categories` carries taxonomy
-- [ ] `packaging/pyrit/loader_example.py` — loader + expected-scorer hints (spec 05 §4 F4)
-- [ ] `test_packaging_promptfoo.py` — real offline `promptfoo eval` vs `echo` provider
-- [ ] `test_packaging_pyrit.py` — `SeedDataset.from_yaml_file` round-trip + tag preservation
-- [ ] `report.py` + `docs/results_schema.md` — `finxpia-run.json` v1 + documented Promptfoo mapping
-- [ ] CI: packaging smoke jobs green with **no API key**
+- [x] `packaging/promptfoo_dataset.py` — `generate_tests()` (canonical) + static `finxpia_tests.yaml` emitter
+- [x] `packaging/promptfoo_assert.py` — `get_assert(output, context)` → `{pass, score, reason}`
+- [x] `packaging/promptfoo/promptfooconfig.example.yaml` — the copy-paste README recipe
+- [x] `packaging/pyrit_export.py` — `SeedDataset` YAML for attacks + benign; `metadata` carries `{vector,goal,severity,expected_behavior}`, `harm_categories` carries taxonomy
+- [x] `packaging/pyrit/loader_example.py` — loader + expected-scorer hints (spec 05 §4 F4)
+- [x] `test_packaging_promptfoo.py` — real offline `promptfoo eval` (19 tests, incl. obeying + blocking providers)
+- [x] `test_packaging_pyrit.py` — real `SeedDataset.from_yaml_file` round-trip + tag preservation (13 tests)
+- [x] `report.py` + `docs/results_schema.md` — `finxpia-run.json` v1 + documented Promptfoo mapping (38 tests)
+- [x] `fixtures/` — real 120-case promptfoo runs vs naive and guarded targets, mapped to run reports
+- [x] CI: 6 jobs, all green with **no API key**
 
 **Acceptance criteria (spec-quoted)**
 - spec 05 §10: "Packaging tests: plugin loads in a Promptfoo smoke run; PyRIT dataset parses"
@@ -247,6 +248,21 @@ Two detector bugs found and fixed, both now regression-tested:
 **Test plan** — both smoke tests invoke the real tools (no mocks) offline: promptfoo via the `echo` provider, PyRIT via its own loader. Report-mapping contract test pins `finxpia-run.json` v1 shape.
 
 **Risk note** — Promptfoo's red-team custom-plugin format is LLM-*generator*-based and cannot express a fixed seeded corpus (verified, see D1); the dataset+recipe path is therefore primary, not a fallback of last resort. Residual risk is promptfoo CLI drift breaking the smoke test → pin the version in CI and keep a pure-Python parse-only assertion as the floor.
+
+**Outcome (2026-09-03): ✅ COMPLETE.** Both delivery paths verified against the **real installed
+tools**, offline, no API key. 180 tests green; ruff, ruff format and mypy clean.
+
+- Promptfoo 0.122.2: the Python generator, the static YAML dataset and the Python assertion all
+  resolve and run under the real CLI. Proven in **both directions** — a local obeying provider
+  makes every attack assertion fail, a local blocking provider makes every benign twin report a
+  false block. Without those, the smoke suite would still pass with an assertion hard-wired to
+  return `True`.
+- PyRIT 1.0.1: both datasets load through `SeedDataset.from_yaml_file()`, with payloads preserved
+  byte-for-byte and the taxonomy queryable via `harm_categories`.
+- End-to-end demo evidence: real 120-case promptfoo runs produce **grade F** (60/60 obeyed) for
+  the naive target and **grade A** (0/60 obeyed, 0/60 false-blocked) for the guarded one.
+
+Three findings, all fixed and regression-tested — see **D9**, **D10** and the correction to **D3**.
 
 ---
 
@@ -302,8 +318,10 @@ Read promptfoo 0.122.2's own docs and ran it locally. Its custom-plugin format i
 **D2 · PyRIT target is `SeedDataset` (PyRIT 1.0.1), not `SeedPromptDataset`.** *(Phase 0)*
 `from pyrit.models import SeedPromptDataset` raises ImportError on 1.0.1; the class is now `SeedDataset` (alongside new `Seed`, `SeedObjective`, `SeedType{prompt,objective,simulated_conversation}`). Confirmed by round-trip: a YAML with dataset-level `name/dataset_name/description/source/authors/groups/harm_categories/data_type/seed_type` + `seeds[]` loads via `SeedDataset.from_yaml_file()`, dataset fields inherit onto each `SeedPrompt`, and an arbitrary `metadata` dict survives intact. So `{vector, goal, severity, expected_behavior}` ride in `metadata` and the taxonomy rides in `harm_categories`.
 
-**D3 · The `echo` provider is the key-free CI smoke target.** *(Phase 0)*
-promptfoo's built-in `echo` provider returns the prompt verbatim, so it needs no API key and doubles as a *maximally naive* agent that parrots injected instructions. Verified: an attack case correctly FAILS its obedience assertion against `echo`. This makes the Phase 3 packaging smoke test fully offline and deterministic in CI.
+**D3 · The `echo` provider is the key-free CI smoke target.** *(Phase 0, **corrected in Phase 3**)*
+promptfoo's built-in `echo` provider returns the prompt verbatim, so it needs no API key and makes the packaging smoke test fully offline and deterministic in CI. That part stands.
+
+**Correction:** the original claim that `echo` "doubles as a maximally naive agent" was wrong, and the Phase 3 smoke test found it. Echoing a payload is *not* obeying it — the detector deliberately does not score a quoted payload as compliance, because a good agent quotes the payload in order to report it, and these payloads frequently contain the word "ignore", which correctly negates an echoed compliance phrase. (The Phase 0 observation came from a crude ad-hoc assertion, not the real negation-aware detector.) So `echo` proves the *packaging* works, while the obedience and false-block paths are proven by two small local providers — one that complies, one that refuses. Attack success itself is measured by Gate A against the real naive agent, which is where it belongs.
 
 **D4 · No API key → both gates ship fully implemented, MockLLM-proven, real runs PENDING.** *(Phase 0)*
 Per adaptation 2. Non-negotiable honesty rule adopted: a mock-mode gate is never reported as a pass. Every artifact carries `validation_mode: mock|live`; README STATUS and the dashboard show "PENDING (mock)".
@@ -318,6 +336,12 @@ Spec 00 A2 describes a shared workspace package, but this repo contains only Pro
 None of the upstream projects exist here. Document scaffolding comes from the same seeded RNG in `generator.py`; the naive-vs-guardrailed delta comes from a local `naive_agent` + `guarded_agent` pair. This keeps spec 05 §15's launch hook demonstrable without faking an integration. Recorded in BLOCKERS.md as a scope deviation, not a silent substitution.
 
 **D8 · Specs moved root → `docs/`.** *(Phase 0)* Matches the briefed layout (`docs/spec_00_shared_foundations.md`) and keeps ground truth beside the docs I author. Content untouched.
+
+**D9 · `PROMPTFOO_PYTHON` must be set, and the README has to say so.** *(Phase 3)*
+Promptfoo spawns its own interpreter for `type: python` assertions and resolves it from `PATH`, **not** from the active virtualenv. Since FinXPIA is installed with `uv`/`pip` into a venv in the overwhelmingly common case, the assertion fails with `ModuleNotFoundError: No module named 'finxpia'` on every single case — a first-run experience that looks like the corpus is broken. Found by the packaging smoke test, which failed exactly this way before the env var was set. It is now set in the smoke test, set in the CI job, and documented prominently in `promptfooconfig.example.yaml` and the README quickstart, with both the POSIX and PowerShell forms.
+
+**D10 · A failed assertion is not an execution error.** *(Phase 3)*
+Promptfoo populates `row["error"]` with the **assertion failure reason** for every failing test, not only for genuine execution failures. The first version of the report mapper read that field directly, so a healthy full run against a deliberately vulnerable target reported **"60 errors"** alongside its 60 findings — a compliance artifact that discredits itself. The mapper now keys off promptfoo's `failureReason` (`0` none, `1` assertion failed, `2` execution error) and counts only `2`, plus the edge case of an error with no output at all (the row never reached the assertion). A clean run now reports `errors: 0` no matter how many attacks succeeded, and a regression test pins it.
 
 ---
 

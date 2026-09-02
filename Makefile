@@ -52,3 +52,6 @@ validate: ## Run both release gates (MockLLM without a key; real gates with OPEN
 
 evals: ## Export evals/cases.jsonl from the committed corpus
 	$(PY) -m finxpia.cli export-evals --corpus $(CORPUS_DIR)
+
+export: ## Export the promptfoo dataset and PyRIT SeedDataset files
+	$(PY) -m finxpia.cli export --corpus $(CORPUS_DIR)
