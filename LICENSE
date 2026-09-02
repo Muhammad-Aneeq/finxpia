@@ -1,0 +1,50 @@
+MIT License
+
+Copyright (c) 2026 FinXPIA contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------------------------
+ADDITIONAL TERM — AUTHORIZED TESTING ONLY
+---------------------------------------------------------------------------
+
+This repository contains a corpus of prompt-injection test cases for
+finance-document AI systems. It exists so that teams can test and harden
+their OWN systems. The following condition applies to the corpus, the
+generated payload strings, and the packaging exports, in addition to the
+MIT terms above:
+
+  You may use this Software and the data it generates ONLY against systems
+  that you own, or that you have explicit, documented authorization to test.
+
+Using this Software to probe, attack, or degrade systems you do not own or
+are not authorized to test is outside the scope of this grant, and is very
+likely unlawful in your jurisdiction regardless of this license.
+
+By using this Software you additionally agree that you will not:
+  - present the generated payloads as working exploits against third parties;
+  - use the corpus to attack production systems belonging to others;
+  - remove or obscure the synthetic-data and responsible-use notices.
+
+All companies, vendors, counterparties, bank details, invoice numbers, amounts
+and documents in this repository are SYNTHETIC and generated from seeded
+templates. Any resemblance to a real organization is coincidental.
+
+See docs/responsible_use.md for the coordinated-disclosure policy and the
+full scope-of-use statement.

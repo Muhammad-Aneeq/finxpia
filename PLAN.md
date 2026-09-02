@@ -131,14 +131,16 @@ finxpia/
 *Spec 05 §13 W1: "taxonomy + severity rubric + attack templates"*
 
 **Tasks**
-- [ ] `pyproject.toml` (uv, pydantic v2, pyyaml, typer, pytest, ruff, mypy), `.gitignore`, `Makefile` skeleton
-- [ ] `taxonomy.py` — 5 vectors × 4 goals as enums + `ExpectedBehavior{refuse,ignore-instruction,flag,process-normally}`
-- [ ] `docs/taxonomy.md` — each vector cited to its **public, documented** source pattern (OWASP LLM01, published XPIA write-ups); explicit "no novel attack research" statement
-- [ ] `severity.py` + `docs/severity_rubric.md` — rubric computed in code, not hand-assigned
-- [ ] `schemas.py` — `AttackCase`, `BenignCase`, `RunResult` **exactly** per spec 05 §6 field lists
-- [ ] `templates/{attack_templates.yaml,benign_templates.yaml,vocab.yaml}` — parameterized, no hardcoded surface strings
-- [ ] `generator.py` — seeded RNG (`random.Random(seed)` derived per-case, never global) → deterministic cases
-- [ ] `corpus.py` — canonical YAML dump (sorted keys, fixed float/str formatting) + sha256 manifest
+- [x] `pyproject.toml` (uv, pydantic v2, pyyaml, typer, pytest, ruff, mypy), `.gitignore`, `Makefile`
+- [x] `taxonomy.py` — 5 vectors × 4 goals as enums + `ExpectedBehavior{refuse,ignore-instruction,flag,process-normally}`
+- [x] `docs/taxonomy.md` — each vector cited to its **public, documented** source pattern (OWASP LLM01, CSV-injection shape); explicit "no novel attack research" statement
+- [x] `severity.py` + `docs/severity_rubric.md` — rubric computed in code, not hand-assigned
+- [x] `schemas.py` — `AttackCase`, `BenignCase`, `RunResult` **exactly** per spec 05 §6 field lists
+- [x] `templates/{attack_templates.yaml,benign_templates.yaml,vocab.yaml}` — parameterized, no hardcoded surface strings
+- [x] `generator.py` — seeded RNG (`Random(f"{seed}:{case_id}")` per case, never global) → deterministic cases
+- [x] `corpus.py` — canonical YAML dump (sorted keys, LF-pinned) + sha256 manifest + tamper detection
+- [x] `cli.py` — `finxpia generate | verify | list | show`
+- [x] `LICENSE` + `README.md` pulled forward from Phase 4 (needed by the package build)
 
 **Taxonomy matrix (yields exactly 60 attacks)** — 5 vectors × 4 goals × 3 seeded variants:
 
@@ -167,6 +169,14 @@ Benign twins: 5 mimicked shapes × 12 variants = 60 (spec 05 §4 F2: "long legit
 **Test plan** — `test_determinism.py` (two generations at seed N byte-identical; different seed differs), `test_schemas.py` (all cases validate; every vector×goal combo present), `test_severity.py` (rubric total/threshold table matches `severity_rubric.md`).
 
 **Risk note** — Generator determinism silently breaks if any code path touches the global `random` module, dict ordering, or `datetime.now()`. Mitigation: per-case seeded RNG derived as `Random(f"{seed}:{case_id}")`, canonical sorted YAML dump, all timestamps injected not read. Determinism test is the tripwire.
+
+**Outcome (2026-09-03): ✅ COMPLETE.** 60 attacks + 60 benign twins, all 120 renders unique, corpus
+hash-verified (`corpus_id 20260903.7b13f73c7fb1`). 67 tests green, ruff clean, mypy clean.
+Severity distribution: `critical` 6 · `high` 32 · `medium` 22 · `low` 0 (structurally unreachable,
+documented and test-pinned). Two issues found and fixed during the phase, both now regression-tested:
+a benign draw collision that produced a duplicate case (deterministic re-draw added), and a
+`docs/severity_rubric.md` claim about which cases are critical that the data contradicted (doc
+corrected; a test now parses the doc's case-id table and compares it to the corpus).
 
 ---
 

@@ -1,0 +1,43 @@
+{
+  "attack_distribution": {
+    "by_goal": {
+      "alter-amount": 15,
+      "auto-approve": 15,
+      "misroute-exfiltrate": 15,
+      "suppress-flag": 15
+    },
+    "by_severity": {
+      "critical": 6,
+      "high": 32,
+      "low": 0,
+      "medium": 22
+    },
+    "by_vector": {
+      "counterparty_name": 12,
+      "csv_cell": 12,
+      "hidden_text": 12,
+      "memo_field": 12,
+      "metadata_filename": 12
+    }
+  },
+  "content_hash": "7b13f73c7fb1eb3ce864d99b0c87a94e70fed31e1154f98066c169854a14d011",
+  "corpus_id": "20260903.7b13f73c7fb1",
+  "counts": {
+    "attack": 60,
+    "benign": 60
+  },
+  "files": {
+    "attacks.yaml": {
+      "count": 60,
+      "sha256": "93f0a2d7662f90cec136249c38a49a72e605258f7870da00c1f3660e9d3ccb2e"
+    },
+    "benign.yaml": {
+      "count": 60,
+      "sha256": "6c4cb2e6c6138dbcad3c046742af10d572b7ad2b5a46d57bfbdb681b1310549a"
+    }
+  },
+  "generator_version": "0.1.0",
+  "notice": "All cases are synthetic and generated from seeded templates.",
+  "schema_version": "1",
+  "seed": 20260903
+}
