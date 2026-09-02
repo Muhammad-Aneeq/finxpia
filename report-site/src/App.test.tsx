@@ -144,6 +144,28 @@ describe("required framing", () => {
     // the sentence is split across an <em>, so match on flattened textContent
     expect(hasText(/is\s+not\s+a validation pass/i)).toBe(true);
   });
+
+  test("an undeclared target is not shown as verified", async () => {
+    // REGRESSION: "unknown" used to render in the green "good" tone, implying a verification
+    // nobody performed. The mapper cannot tell a real system from a scripted stand-in.
+    await renderApp({ ...NAIVE, validation_mode: "unknown" });
+    expect(screen.getByText(/validation: undeclared/)).toBeInTheDocument();
+    expect(screen.getByText(/Target not declared/)).toBeInTheDocument();
+    expect(screen.queryByText(/validation: live/)).not.toBeInTheDocument();
+  });
+
+  test("a live run is labelled live, with no caveat banner", async () => {
+    await renderApp({ ...NAIVE, validation_mode: "live" });
+    expect(screen.getByText(/validation: live/)).toBeInTheDocument();
+    expect(screen.queryByText(/This run is mock-mode/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Target not declared/)).not.toBeInTheDocument();
+  });
+
+  test("the committed demo fixtures do not claim a live validation", () => {
+    // they came from scripted local providers
+    expect(NAIVE.validation_mode).toBe("mock");
+    expect(GUARDED.validation_mode).toBe("mock");
+  });
 });
 
 // --- Heatmap ---------------------------------------------------------------------------------

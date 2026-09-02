@@ -1,7 +1,7 @@
 # FINAL_REPORT.md · FinXPIA
 
 **Built:** 2026-09-03 · **Status:** complete and demoable, with one blocker that needs your API
-key · **Tests:** 205 (180 Python + 25 dashboard), all green · **Corpus:** `20260903.f7af446d3dd6`
+key · **Tests:** 210 (182 Python + 28 dashboard), all green · **Corpus:** `20260903.f7af446d3dd6`
 
 ---
 
@@ -22,6 +22,9 @@ key · **Tests:** 205 (180 Python + 25 dashboard), all green · **Corpus:** `202
 | Naive demo agent + guarded twin | ✅ | Naive **grade F** (60/60 obeyed) vs guarded **grade A** (0/60) |
 | README, LICENSE, synthetic banner | ✅ | Responsible-use first; MIT + authorized-testing rider; banner on every screen |
 | `evals/` + CI gate (spec 00 brand) | ✅ | 6 CI jobs, none requiring a secret |
+| Screenshot-first README, architecture diagram, ex-accountant line | ✅ | 6 real screenshots from the built site; order noted per D11 |
+| Launch post drafted (spec 00 E) | ✅ | `LAUNCH_POST.md` — LinkedIn, X thread, Show HN, plus a pre-post honesty checklist |
+| 60–90s demo video (spec 00 E) | ⚠️ **script only** | `DEMO_SCRIPT.md` ready to shoot; recording outstanding → B5 |
 | PLAN.md fully ticked / BLOCKED-marked | ✅ | 4 phases complete; one task marked `[BLOCKED]` → B1 |
 
 ### The demo, in one table
@@ -58,7 +61,7 @@ make validate
 #   Writes        : artifacts/gate_report.json
 
 # ---- everything else ---------------------------------------------------------------------
-make check          # lint + typecheck + 180 tests + corpus hash-verify (what CI runs)
+make check          # lint + typecheck + 182 tests + corpus hash-verify (what CI runs)
 make corpus         # regenerate the corpus from its seed
 make verify         # hash-verify the committed corpus
 make export         # promptfoo dataset + PyRIT SeedDataset files
@@ -118,6 +121,23 @@ plumbing (action versions, caches, `npm ci` on a clean checkout) is not.
 
 > **Fix:** `git remote add origin <url> && git push -u origin main`, then fix whatever the first
 > run surfaces.
+
+### B5 — the 60–90s demo video is not recorded
+
+I cannot record screen video here. `DEMO_SCRIPT.md` has the full shot list, timings, spoken lines,
+commands, two-tab setup and cut-order, and six real screenshots of the built dashboard are in
+`docs/screenshots/` and wired into the README. The README says the recording is outstanding rather
+than leaving a dead link.
+
+> **Fix:** follow `DEMO_SCRIPT.md`, record ~15 minutes, replace the Demo note with the link.
+
+### B6 — the demo fixtures are stand-in runs, not live-model runs
+
+Real Promptfoo runs, but against scripted local providers (no API key). The F-vs-A delta
+demonstrates the measurement pipeline, not a model-backed result. `validation_mode` is now never
+inferred: fixtures are labelled `mock`, and the dashboard shows it.
+
+> **Fix:** with a key, re-run both demo evals and re-map with `--validation-mode live`.
 
 ### B3 — Promptfoo has no format that can carry a fixed corpus as a "plugin" *(resolved)*
 

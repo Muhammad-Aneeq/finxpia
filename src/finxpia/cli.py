@@ -206,15 +206,32 @@ def report(
         "--generated-at",
         help="ISO timestamp; defaults to now. Pin it for byte-identical rebuilds.",
     ),
+    validation_mode: str = typer.Option(
+        "unknown",
+        "--validation-mode",
+        help=(
+            "Was the target a real system ('live') or a scripted stand-in ('mock')? "
+            "Never inferred: a provider id does not reveal it, and guessing 'live' would "
+            "overstate a demo run."
+        ),
+    ),
 ) -> None:
     """Map a runner's output into finxpia-run.json for the dashboard."""
     from datetime import datetime
 
     from .report import report_from_promptfoo, write_run_report
 
+    if validation_mode not in ("unknown", "live", "mock"):
+        typer.echo("--validation-mode must be one of: unknown, live, mock", err=True)
+        raise typer.Exit(2)
+
     stamp = generated_at or datetime.now(UTC).isoformat(timespec="seconds")
     payload = report_from_promptfoo(
-        results, corpus_dir=corpus_dir, generated_at=stamp, target=target
+        results,
+        corpus_dir=corpus_dir,
+        generated_at=stamp,
+        target=target,
+        validation_mode=validation_mode,
     )
     write_run_report(payload, out)
 
@@ -232,6 +249,12 @@ def report(
         typer.echo(f"benign soft-flagged {summary['benign_soft_flagged']}")
     if payload["unmatched_case_ids"]:
         typer.echo(f"unmatched rows      {len(payload['unmatched_case_ids'])} (kept, not dropped)")
+    typer.echo(f"validation mode     {validation_mode}")
+    if validation_mode != "live":
+        typer.echo(
+            "  ^ not declared as a live-target run; the dashboard labels it accordingly.\n"
+            "    Pass --validation-mode live when the target was a real system."
+        )
     typer.echo(f"written to          {out}")
 
 

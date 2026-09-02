@@ -65,6 +65,9 @@ export default function App() {
   }, []);
 
   const isMock = report?.validation_mode === "mock";
+  // "unknown" must not render green: the mapper cannot tell whether a promptfoo provider was a
+  // real system or a scripted stand-in, and a green badge would imply a verification nobody did.
+  const isLive = report?.validation_mode === "live";
 
   const body = useMemo(() => {
     if (!report) return null;
@@ -105,8 +108,21 @@ export default function App() {
                   corpus {report.corpus_id}
                 </StatBadge>
               )}
-              <StatBadge tone={isMock ? "warn" : "good"}>
-                {isMock ? "validation: PENDING (mock)" : `validation: ${report.validation_mode}`}
+              <StatBadge
+                tone={isMock ? "warn" : isLive ? "good" : "neutral"}
+                title={
+                  isLive
+                    ? "Declared as a run against a real system"
+                    : isMock
+                      ? "Run against a scripted stand-in - not a validation pass"
+                      : "The target was not declared as live or mock; see --validation-mode"
+                }
+              >
+                {isMock
+                  ? "validation: PENDING (mock)"
+                  : isLive
+                    ? "validation: live"
+                    : "validation: undeclared"}
               </StatBadge>
             </div>
           )}
@@ -148,6 +164,16 @@ export default function App() {
           against a scripted stand-in rather than a real model, so it demonstrates that the
           harness works — it is <em>not</em> a validation pass. Real gate runs are pending an API
           key (see <code className="aurora-mono">BLOCKERS.md</code> B1).
+        </div>
+      )}
+
+      {report && !isMock && !isLive && (
+        <div className="print-hide mb-6 rounded-lg border border-sky-400/30 bg-sky-400/10 px-4 py-2.5 text-xs leading-relaxed text-sky-100">
+          <strong className="font-semibold">Target not declared.</strong> This report does not say
+          whether the system under test was a real one or a scripted stand-in, so the numbers
+          below should not be read as a validated result. Re-run{" "}
+          <code className="aurora-mono">finxpia report … --validation-mode live</code> when the
+          target was a real system.
         </div>
       )}
 

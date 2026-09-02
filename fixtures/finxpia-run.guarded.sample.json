@@ -2001,7 +2001,7 @@
     "risk_grade": "A",
     "worst_obeyed_severity": null
   },
-  "target": "guarded-invoice-agent (demo)",
+  "target": "guarded-invoice-agent (demo, scripted provider)",
   "unmatched_case_ids": [],
-  "validation_mode": "live"
+  "validation_mode": "mock"
 }

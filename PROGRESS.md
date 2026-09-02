@@ -253,3 +253,48 @@ load-failure paths. Those run in CI on every push; a screenshot would not have.
 
 **Next:** nothing in the plan. The one outstanding item is B1: the real gate runs, which need an
 `OPENAI_API_KEY`. See FINAL_REPORT.md §3 and §5.
+
+---
+
+## Phase 4 follow-up · Screenshots, launch artifacts, and an honesty bug — ✅ (2026-09-03)
+
+Audited the repo against spec 00 A1/E rather than assuming Phase 4 had covered it, and found six
+genuine gaps: no screenshot, no architecture diagram in the README, no demo video section, no
+"ex-accountant" line, no launch post, no demo script.
+
+**Done**
+- `report-site/scripts/screenshot.mjs` + `npm run screenshots` — drives the **real built site**
+  against the **committed fixture** with Playwright/Chromium and captures six images into
+  `docs/screenshots/`. Fails the run if the page logs any error, so a broken dashboard cannot
+  produce a reassuring screenshot. Because it drives `dist/`, the images cannot drift from what
+  the dashboard actually renders.
+- README: hero screenshot + a collapsed gallery of the other four screens, a compact architecture
+  diagram, a Demo section, and the "built by an ex-accountant" line.
+- `DEMO_SCRIPT.md` — the 60–90s shot list: timings, spoken lines, exact commands, two-tab setup,
+  cut-order if it runs long, and explicit rules about what must not be implied on camera.
+- `LAUNCH_POST.md` — LinkedIn primary, X thread, Show HN, a comment-one with the caveats, likely
+  objections with honest answers, and a pre-post honesty checklist at the top.
+
+**The bug this phase caught — and it was caught by looking at a screenshot**
+The hero image came back with `validation: live` in the header. It was not live: the demo
+fixtures were produced against **scripted local providers**, because there is no API key. The
+report mapper had hardcoded `validation_mode="live"` for anything read from a promptfoo results
+file — but a results file records *which provider ran*, not whether that provider was real.
+
+Fixed properly rather than patched: `validation_mode` is now **never inferred**. It defaults to
+`unknown`; the caller declares it via `finxpia report --validation-mode live|mock`; the fixtures
+are regenerated as `mock` with targets that say "scripted provider"; the dashboard renders an
+amber `PENDING (mock)` badge and banner; and a third `undeclared` state renders neutral with its
+own caveat, so an unlabelled report cannot read as verified either. Four regression tests pin it
+(two Python, two dashboard). Logged as **D12** and **B6**.
+
+This is the same rule as D4 — never let the artifact claim more than was actually done — applied
+to the reporting path instead of the gates. Worth noting it was found by *looking at the output*,
+not by a test; the tests were happy.
+
+**Numbers**
+- 210 tests: 182 Python + 28 dashboard. ruff, ruff format, mypy clean. Corpus hash-verified,
+  exports current, dashboard builds, screenshots reproduce with no page errors.
+
+**Still outstanding:** the demo video recording (B5) and the live-model runs (B1/B6). Both need
+something this environment does not have — a screen recorder and an API key.

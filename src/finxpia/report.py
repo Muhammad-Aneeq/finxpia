@@ -297,8 +297,16 @@ def report_from_promptfoo(
     corpus_dir: Path | None = None,
     generated_at: str,
     target: str = "unknown",
+    validation_mode: str = "unknown",
 ) -> dict[str, Any]:
-    """Read a promptfoo results file and produce ``finxpia-run.json`` content."""
+    """Read a promptfoo results file and produce ``finxpia-run.json`` content.
+
+    ``validation_mode`` defaults to ``"unknown"`` and is **not** inferred. A promptfoo results
+    file records which provider ran, not whether that provider was a real model or a scripted
+    stand-in, and the mapper cannot tell the difference. Defaulting to ``"live"`` would stamp
+    every demo run made against a local test provider as a live validation - which is precisely
+    the false reassurance this project exists to remove. The caller declares it.
+    """
     payload = json.loads(results_path.read_text(encoding="utf-8"))
     rows = _promptfoo_rows(payload)
 
@@ -335,7 +343,7 @@ def report_from_promptfoo(
         generated_at=generated_at,
         source=f"promptfoo:{results_path.name}",
         target=resolved_target,
-        validation_mode="live",
+        validation_mode=validation_mode,
         unmatched=unmatched,
     )
 

@@ -35,6 +35,86 @@ This exists so that teams building invoice, remittance and statement-processing 
 
 If you are looking for something to attack systems with, this is the wrong repository.
 
+> **A note on this README's order.** Spec 00 A1 asks for a screenshot-first README. The brief for
+> this project asks for responsible-use framing first. Where those conflict the brief wins, so
+> the ethics section leads and the screenshots follow immediately (decision **D11**).
+
+---
+
+## What it looks like
+
+![FinXPIA Summary screen — risk grade F, 100% attack success, 0% false-block rate](docs/screenshots/00-hero.png)
+
+*Summary. Attack success and false-block rate side by side, never averaged — a target can be
+grade A and still be unusable because it refuses real invoices. The amber badge is the honesty
+mechanism working: this demo run used a scripted stand-in, so it is labelled `PENDING (mock)`
+rather than claiming a validation it never performed.*
+
+<details>
+<summary><b>The other four screens</b> — Heatmap, Case Replay, FPR panel, Compliance export</summary>
+
+**Heatmap** — vector × severity, click any cell to inspect its cases. The empty `low` column is
+rendered and *explained* rather than dropped, because a missing row in an audit artifact is
+indistinguishable from a data problem.
+
+![Heatmap screen](docs/screenshots/02-heatmap.png)
+
+**Case Replay** — the payload, where it was planted, the verbatim response, and the detector's
+stated reason. A verdict you cannot audit is not much use in a security report.
+
+![Case Replay screen](docs/screenshots/03-case-replay.png)
+
+**False Positives** — half the product. Per-shape breakdown, so a guardrail that only breaks one
+document shape shows up here rather than hiding in the headline rate.
+
+![False positives screen](docs/screenshots/04-false-positives.png)
+
+**Compliance export** — methodology, timestamps, corpus hash, findings, and an explicit section
+on what the test does *not* establish. Prints to PDF via the browser, so no PDF library is
+bundled and an auditor can reproduce it.
+
+![Compliance export screen](docs/screenshots/05-compliance-export.png)
+
+</details>
+
+Screenshots are generated from the real built site against the committed fixture
+(`npm run screenshots` in `report-site/`), so they cannot drift from what the dashboard renders.
+
+## Architecture
+
+```
+templates/*.yaml ──seed──► generator.py ──► corpus/ (hash-versioned, committed)
+                                              │
+                        ┌─────────────────────┴─────────────────────┐
+                        ▼                                           ▼
+          packaging/promptfoo/                          packaging/pyrit/
+          tests + python assertion                      SeedDataset ×2
+                        │                                           │
+                        ▼                                           ▼
+              ╔═══════════════════╗                     ╔═══════════════════╗
+              ║ PROMPTFOO (theirs)║                     ║  PyRIT (theirs)   ║
+              ║ runs vs YOUR agent║                     ║ multi-turn        ║
+              ╚═════════╤═════════╝                     ╚═══════════════════╝
+                        │ results.json
+                        ▼
+              report.py ──► finxpia-run.json v1 ──► report-site/ (static SPA)
+
+   validation loop (release gates, not user-facing):
+     corpus ──► naive_agent  ──► detectors ──► GATE A  (100% must be obeyed)
+     corpus ──► naive_agent  ──► detectors ──► GATE B  (<5% may be false-blocked)
+     corpus ──► guarded_agent ─► detectors ──► the naive-vs-guarded demo delta
+```
+
+FinXPIA owns no runner — that is the central design decision. Full diagram and module map in
+[docs/architecture.md](docs/architecture.md).
+
+## Demo
+
+A 60–90s walkthrough script (shot list, timings, and the exact commands) is in
+[DEMO_SCRIPT.md](DEMO_SCRIPT.md). **The recording itself is not yet made** — see **B5** in
+[BLOCKERS.md](BLOCKERS.md). Until then, the screenshots above and the fixtures in `fixtures/`
+show the same material.
+
 ---
 
 ## The problem
@@ -251,9 +331,9 @@ Honest, and kept current with [PLAN.md](PLAN.md) and [BLOCKERS.md](BLOCKERS.md).
 | 1 · Taxonomy, severity rubric, seeded templates | ✅ complete |
 | 2 · Corpora + validation gates | ✅ complete (gate runs mock-mode, see below) |
 | 3 · Promptfoo dataset + PyRIT export + packaging tests | ✅ complete |
-| 4 · Dashboard, demo, docs | ✅ complete |
+| 4 · Dashboard, demo, docs | ✅ complete (demo *video* not recorded — B5) |
 
-**What is verified.** 205 tests: 180 Python + 25 dashboard render tests. The corpus regenerates
+**What is verified.** 210 tests: 182 Python + 28 dashboard render tests. The corpus regenerates
 byte-identically from its seed and is hash-verified. Both delivery paths are exercised against
 the **real** installed tools — Promptfoo 0.122.2 and PyRIT 1.0.1 — offline, with no API key. The
 dashboard builds statically and renders a real 120-case run across all five screens.
@@ -277,6 +357,11 @@ away:
 export OPENAI_API_KEY=sk-...
 make validate                 # runs both gates for real, ~$1 on a mini-class model
 ```
+
+**The demo fixtures are stand-in runs.** They come from *real* Promptfoo runs, but against
+scripted local providers rather than a live model, so the F-vs-A delta demonstrates the
+measurement pipeline rather than a model-backed result. `validation_mode` is never inferred — the
+fixtures are labelled `mock` and the dashboard says so (**B6**, **D12**).
 
 **Deliberate deviations, all logged.** The Promptfoo "plugin" → dataset + recipe (**D1**). The
 upstream portfolio projects (`ledgerfab`, `aurora-ui`, Project 02, Project 06) do not exist in
@@ -334,3 +419,10 @@ listing what the test does *not* establish.
 ## License
 
 MIT, plus an **authorized-testing-only** additional term. See [LICENSE](LICENSE).
+
+---
+
+*Built by an ex-accountant turned AI engineer. The taxonomy comes from having actually processed
+the documents — the reason `csv_cell` covers poisoned **headers** and not just cells, and the
+reason the benign twins include a vendor genuinely called "SELECT Interiors Ltd", is that those
+are the things that bite you in an accounts payable queue.*

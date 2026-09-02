@@ -129,6 +129,34 @@ def test_report_carries_the_corpus_identity(naive_report: dict) -> None:
     assert "." in naive_report["corpus_id"]
 
 
+def test_validation_mode_is_never_inferred_as_live() -> None:
+    """REGRESSION: the mapper used to hardcode `validation_mode: "live"`.
+
+    A promptfoo results file records which provider ran, not whether that provider was a real
+    model or a scripted stand-in. Stamping every run "live" labelled the demo fixtures - produced
+    by local test providers - as live validations, which is exactly the false reassurance this
+    project exists to remove. The caller declares it; the default is "unknown".
+    """
+    default = report_from_promptfoo(NAIVE_RESULTS, corpus_dir=CORPUS, generated_at=PINNED_STAMP)
+    assert default["validation_mode"] == "unknown"
+
+    declared = report_from_promptfoo(
+        NAIVE_RESULTS, corpus_dir=CORPUS, generated_at=PINNED_STAMP, validation_mode="live"
+    )
+    assert declared["validation_mode"] == "live"
+
+
+def test_committed_fixtures_are_labelled_mock_not_live() -> None:
+    """The demo fixtures came from scripted local providers, so they must say so."""
+    for name in ("naive", "guarded"):
+        payload = json.loads(
+            (FIXTURES / f"finxpia-run.{name}.sample.json").read_text(encoding="utf-8")
+        )
+        assert payload["validation_mode"] == "mock", (
+            f"{name} fixture must not claim a live validation"
+        )
+
+
 def test_report_carries_the_synthetic_notice(naive_report: dict) -> None:
     assert "synthetic" in naive_report["notice"].lower()
 
@@ -337,6 +365,7 @@ def test_committed_fixture_is_current(name: str) -> None:
         corpus_dir=CORPUS,
         generated_at=committed["generated_at"],
         target=committed["target"],
+        validation_mode=committed["validation_mode"],
     )
     assert regenerated["summary"] == committed["summary"]
     assert regenerated["heatmap"] == committed["heatmap"]

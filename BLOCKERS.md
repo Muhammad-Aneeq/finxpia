@@ -107,3 +107,55 @@ states this distinction rather than implying CI is green.
 **Blocks:** nothing. It is a verification gap, stated rather than glossed.
 **One-line fix:** `git remote add origin <url> && git push -u origin main` and fix whatever the
 first run surfaces.
+
+---
+
+## B5 · The 60–90s demo video has not been recorded
+**Status:** WORKED-AROUND · opened 2026-09-03 (Phase 4 follow-up)
+
+**What.** Spec 00 E's definition of done includes a 60–90s demo video. I cannot record screen
+video or audio from this environment.
+
+**Tried.** Produced everything the recording needs so it is a sit-down-and-shoot job rather than a
+design job: `DEMO_SCRIPT.md` has the shot list, timings, spoken lines, the exact commands, the
+two-tab setup, cut-order if it runs long, and the rules for what must not be implied on camera.
+Also captured six real screenshots of the built dashboard (`npm run screenshots` in
+`report-site/`, driving the actual `dist/` build against the committed fixture), which cover the
+same material as stills and are wired into the README.
+
+**Needed.** A screen recorder and ~15 minutes.
+
+**Workaround.** README links `DEMO_SCRIPT.md` and states plainly that the recording is not yet
+made, rather than leaving a dead "demo video" link. The screenshots carry the visual weight in
+the meantime.
+
+**Blocks:** nothing in the build. It is an outstanding spec 00 E artifact.
+**One-line fix:** follow `DEMO_SCRIPT.md`, record, and replace the Demo section's note with the
+link.
+
+---
+
+## B6 · Demo fixtures are stand-in runs, not live-model runs
+**Status:** WORKED-AROUND · opened 2026-09-03 (Phase 4 follow-up)
+
+**What.** The committed naive/guarded fixtures come from **real Promptfoo runs**, but against
+**scripted local providers**, not a live model — because there is no API key (B1). The
+naive-vs-guarded delta (F vs A) is therefore a demonstration of the measurement pipeline, not a
+model-backed result.
+
+**Tried.** Initially the report mapper hardcoded `validation_mode: "live"` for anything read from
+a promptfoo results file, which silently stamped these fixtures as live validations. Caught it
+while reviewing a screenshot: the dashboard header read `validation: live` on a run that was
+nothing of the sort.
+
+**Needed.** An API key, then re-run the demo against a real model.
+
+**Workaround.** `validation_mode` is now **never inferred** — it defaults to `unknown` and the
+caller declares it with `finxpia report --validation-mode live|mock` (decision **D12**). The
+fixtures are regenerated as `mock`, their `target` says "scripted provider", and the dashboard
+shows an amber `PENDING (mock)` badge plus a banner. A third state, `undeclared`, renders neutral
+with its own caveat banner so an unlabelled report cannot read as verified either. Three
+regression tests pin all of this.
+
+**Blocks:** nothing. The pipeline is fully exercised; only the *target realism* is pending.
+**One-line fix:** with a key set, re-run both demo evals and re-map with `--validation-mode live`.
