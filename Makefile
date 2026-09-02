@@ -46,3 +46,9 @@ clean: ## Remove build and cache artefacts
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
 all: check ## Alias for check
+
+validate: ## Run both release gates (MockLLM without a key; real gates with OPENAI_API_KEY)
+	$(PY) -m finxpia.cli validate --corpus $(CORPUS_DIR) --out artifacts/gate_report.json
+
+evals: ## Export evals/cases.jsonl from the committed corpus
+	$(PY) -m finxpia.cli export-evals --corpus $(CORPUS_DIR)

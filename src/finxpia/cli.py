@@ -6,12 +6,19 @@ packaging, validation and report commands are layered on top in later phases.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
 
 from . import AUTHORIZED_USE_NOTICE, SYNTHETIC_DATA_NOTICE, __version__
-from .corpus import load_attack_cases, load_benign_cases, verify_corpus, write_corpus
+from .corpus import (
+    load_attack_cases,
+    load_benign_cases,
+    load_manifest,
+    verify_corpus,
+    write_corpus,
+)
 from .generator import DEFAULT_SEED
 
 app = typer.Typer(
@@ -99,6 +106,112 @@ def list_cases(
     for row in rows:
         typer.echo("  ".join(str(v).ljust(w) for v, w in zip(row, widths, strict=True)))
     typer.echo(f"\n{len(rows)} case(s). {SYNTHETIC_DATA_NOTICE}")
+
+
+@app.command()
+def validate(
+    corpus_dir: Path = typer.Option(DEFAULT_CORPUS_DIR, "--corpus", "-c"),
+    mock: bool = typer.Option(
+        False, "--mock", help="Force the scripted MockLLM even if a live key is available."
+    ),
+    out: Path | None = typer.Option(None, "--out", help="Write the gate report as JSON."),
+) -> None:
+    """Run both release gates: attack-validity (A) and benign-fairness (B).
+
+    With no ``OPENAI_API_KEY`` this runs against the scripted MockLLM and reports
+    "PENDING (mock)" - it proves the harness, and never claims a pass. Export a key and this
+    same command performs the real validation run (BLOCKERS.md B1).
+    """
+    from .agents.llm import MockLLM, OpenAIClient, live_client_available
+    from .validation import run_gate_a, run_gate_b
+
+    use_live = live_client_available() and not mock
+    if use_live:
+        typer.echo("OPENAI_API_KEY found: running LIVE validation.\n")
+        client_a: object = OpenAIClient()
+        client_b: object = OpenAIClient()
+    else:
+        reason = "forced by --mock" if mock else "no OPENAI_API_KEY"
+        typer.echo(f"Running in MOCK mode ({reason}). Results are PENDING, never a pass.\n")
+        client_a = MockLLM(mode="naive")
+        client_b = MockLLM(mode="naive")
+
+    gate_a = run_gate_a(client=client_a, corpus_dir=corpus_dir)  # type: ignore[arg-type]
+    gate_b = run_gate_b(client=client_b, corpus_dir=corpus_dir)  # type: ignore[arg-type]
+
+    typer.echo(gate_a.summary())
+    for dud in gate_a.duds:
+        typer.echo(f"  DUD  {dud.case_id} ({dud.vector}/{dud.goal}): {dud.reason}")
+    typer.echo(gate_b.summary())
+    for unfair in gate_b.unfair_cases:
+        typer.echo(f"  UNFAIR  {unfair.case_id} ({unfair.mimics_vector}): {unfair.reason}")
+
+    report = {
+        "corpus_id": load_manifest(corpus_dir).get("corpus_id"),
+        "validation_mode": gate_a.validation_mode,
+        "gates": [gate_a.to_dict(), gate_b.to_dict()],
+    }
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with out.open("w", encoding="utf-8", newline="") as fh:
+            json.dump(report, fh, indent=2, sort_keys=True)
+            fh.write("\n")
+        typer.echo(f"\ngate report written to {out}")
+
+    if not (gate_a.threshold_met and gate_b.threshold_met):
+        typer.echo("\nOne or more gates FAILED their threshold.", err=True)
+        raise typer.Exit(1)
+    if not (gate_a.passed and gate_b.passed):
+        typer.echo(
+            "\nThresholds met, but this was a MOCK run: real validation is still PENDING.\n"
+            "Run `make validate` with OPENAI_API_KEY set for the real gates."
+        )
+    raise typer.Exit(0)
+
+
+@app.command("export-evals")
+def export_evals(
+    corpus_dir: Path = typer.Option(DEFAULT_CORPUS_DIR, "--corpus", "-c"),
+    out: Path = typer.Option(Path("evals/cases.jsonl"), "--out", "-o"),
+) -> None:
+    """Write the gate cases as JSONL (the `evals/cases.jsonl` convention, spec 00 A1)."""
+    attacks = load_attack_cases(corpus_dir)
+    benign = load_benign_cases(corpus_dir)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as fh:
+        for attack in attacks:
+            fh.write(
+                json.dumps(
+                    {
+                        "case_id": attack.id,
+                        "kind": "attack",
+                        "gate": "attack_validity",
+                        "vector": str(attack.vector),
+                        "goal": str(attack.goal),
+                        "severity": str(attack.severity),
+                        "expected_behavior": attack.expected_behavior,
+                        "expect_obeyed_by_naive_agent": True,
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        for twin in benign:
+            fh.write(
+                json.dumps(
+                    {
+                        "case_id": twin.id,
+                        "kind": "benign",
+                        "gate": "benign_fairness",
+                        "mimics_vector": str(twin.mimics_vector),
+                        "expected_behavior": twin.expected_behavior,
+                        "expect_false_block": False,
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+    typer.echo(f"wrote {len(attacks) + len(benign)} eval cases to {out}")
 
 
 @app.command()

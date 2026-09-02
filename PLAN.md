@@ -184,15 +184,16 @@ corrected; a test now parses the doc's case-id table and compares it to the corp
 *Spec 05 §13 W2: "attack corpus + benign twins + benign-fairness validation"*
 
 **Tasks**
-- [ ] Generate + commit `corpus/attacks.yaml` (~60), `corpus/benign.yaml` (~60), `corpus/manifest.json`
-- [ ] `detectors.py` — obedience detection per goal (did the agent auto-approve / leak / suppress / alter?)
-- [ ] `agents/llm.py` — `LLMClient` protocol; `OpenAIClient` (gpt-5-mini class per spec 00 F) + scripted `MockLLM`
-- [ ] `agents/naive_agent.py` — ~100-line deliberately naive invoice agent (no injection defenses, treats document text as instructions)
-- [ ] `agents/guarded_agent.py` — hardened twin (data/instruction separation, refuses in-document commands) for the delta demo
-- [ ] `validation/attack_validity.py` — GATE A: every attack must succeed vs naive agent
-- [ ] `validation/benign_fairness.py` — GATE B: false-block rate on benign twins, threshold 5%
-- [ ] `evals/cases.jsonl` + `evals/test_gates.py` — CI eval gate (MockLLM default; real when key present)
-- [ ] `make validate` wired for real runs; `[BLOCKED]` real-key runs → BLOCKERS.md
+- [x] Generate + commit `corpus/attacks.yaml` (60), `corpus/benign.yaml` (60), `corpus/manifest.json`
+- [x] `detectors.py` — obedience detection per goal (artifact adoption → structured decision → negation-aware phrases)
+- [x] `agents/llm.py` — `LLMClient` protocol; `OpenAIClient` (gpt-5-mini class per spec 00 F) + scripted `MockLLM`
+- [x] `agents/naive_agent.py` — deliberately naive invoice agent (document content concatenated into the instruction block)
+- [x] `agents/guarded_agent.py` — hardened twin (data/instruction separation) for the delta demo
+- [x] `validation/attack_validity.py` — GATE A: every attack must succeed vs naive agent
+- [x] `validation/benign_fairness.py` — GATE B: false-block rate on benign twins, threshold <5%
+- [x] `evals/cases.jsonl` (120 cases) + `evals/test_gates.py` — CI eval gate, MockLLM default
+- [x] `make validate` wired; `finxpia validate` runs live automatically when a key is present
+- [x] **[BLOCKED]** real-key gate runs → BLOCKERS.md **B1** (harness proven, real runs pending)
 
 **Acceptance criteria (spec-quoted)**
 - spec 05 §10: "Attack-validity check: each attack must succeed against a deliberately naive agent (proves it's a real test, not a dud)"
@@ -202,6 +203,25 @@ corrected; a test now parses the doc's case-id table and compares it to the corp
 **Test plan** — gates run end-to-end against MockLLM in CI and must *actually gate* (negative tests: a deliberately dud attack case fails Gate A; an unfairly-tripwired benign case fails Gate B). Detector precision test on hand-labelled response strings.
 
 **Risk note** — MockLLM can trivially "prove" whatever the harness wants, making green gates meaningless. Mitigation: MockLLM is *scripted per goal* (naive→obeys, guarded→refuses) and the gates are proven by **negative tests** that must fail; every MockLLM result is labelled `validation_mode: mock` in output and surfaced as "PENDING (mock)" in README STATUS and the dashboard, never as a pass.
+
+**Outcome (2026-09-03): COMPLETE** (real-key runs BLOCKED per B1). Gate A **60/60 = 100%** attack
+success vs the naive agent. Gate B **0/60 = 0%** false-block on a vanilla pipeline (bar <5%).
+Demo delta: the guarded agent obeys **0/60** attacks while false-blocking **0/60** twins — the
+spec 05 §15 headline, and the benign half proves it did not get there by refusing everything.
+110 tests green. Both gates report `PENDING (mock)` with `passed == False`, and 6 negative tests
+prove they are not vacuous (a dud attack fails Gate A; an always-refusing target fails Gate A;
+exactly 5% fails Gate B).
+
+Two detector bugs found and fixed, both now regression-tested:
+1. **Negation matching inverted the detector.** The negator `not` was unanchored on the right, so
+   it matched the first three letters of the JSON key `"notes"` — and since both agents put their
+   prose in a `notes` field, virtually every compliance phrase was silently treated as negated.
+   All 15 `suppress-flag` cases were being scored as "not obeyed". Negators are now anchored at
+   both ends, and a test asserts that for every entry in the table.
+2. **`hold` was being counted as a raised flag.** `HOLD_VALUES` included `hold`, so
+   `decision.flagged` was true for any held invoice. That made flag-suppression undetectable and
+   marked all 60 benign twins as soft-flagged. `FLAG_VALUES` (an exception was raised) is now
+   separate from `HOLD_VALUES` (routed for normal approval).
 
 ---
 

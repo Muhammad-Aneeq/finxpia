@@ -69,8 +69,8 @@ while breaking the other is a regression, and this corpus makes it show up as on
 |---|---|
 | 0 · Ground truth + plan | ✅ complete |
 | 1 · Taxonomy, severity rubric, seeded templates | ✅ complete |
-| 2 · Corpora + validation gates | 🚧 in progress (corpus generated; gates next) |
-| 3 · Promptfoo dataset + PyRIT export + packaging tests | ⬜ not started |
+| 2 · Corpora + validation gates | ✅ complete (gates PENDING a live key, see B1) |
+| 3 · Promptfoo dataset + PyRIT export + packaging tests | 🚧 in progress |
 | 4 · Dashboard, demo, docs | ⬜ not started |
 
 Known deviations from the original spec, all deliberate and logged:

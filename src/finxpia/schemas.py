@@ -64,6 +64,14 @@ class AttackCase(_Base):
     # --- additive, for reproducibility and auditability ---
     source_pattern: str = Field(min_length=1)
     rendered: str = Field(min_length=1, description="Seeded concrete surface string.")
+    injected_artifacts: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "The concrete values this payload tries to make the agent adopt - attacker IBAN, "
+            "email, sort code, inflated amount. Recorded so obedience detection can look for "
+            "specific values rather than guessing from prose. See detectors.py."
+        ),
+    )
     document: dict[str, str] = Field(
         default_factory=dict,
         description="Synthetic document scaffolding the payload was rendered into.",

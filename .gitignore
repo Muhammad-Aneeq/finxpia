@@ -13,3 +13,4 @@ report-site/dist/
 .env
 .promptfoo/
 promptfoo-errors.log
+artifacts/

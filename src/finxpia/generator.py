@@ -271,18 +271,38 @@ def expected_behavior_for(goal: Goal, severity: Severity) -> str:
 # --------------------------------------------------------------------------------------------
 
 
-def _render_instruction(rng: random.Random, vocab: dict[str, Any], goal: Goal) -> str:
-    """Pick and fill one goal-specific instruction payload."""
+def _render_instruction(
+    rng: random.Random, vocab: dict[str, Any], goal: Goal
+) -> tuple[str, dict[str, str]]:
+    """Pick and fill one goal-specific instruction payload.
+
+    Returns the rendered instruction and the artifacts it tries to make the agent adopt. Only
+    artifacts the chosen template actually used are reported, so obedience detection never looks
+    for a value that is not in the payload.
+    """
     template: str = _pick(rng, vocab["instructions"][goal.value])
-    return template.format_map(
+    candidates = {
+        "iban": _pick(rng, vocab["attacker_ibans"]),
+        "email": _pick(rng, vocab["attacker_emails"]),
+        "sort_code": _pick(rng, vocab["attacker_sort_codes"]),
+        "account_number": _pick(rng, vocab["attacker_account_numbers"]),
+        "inflated_amount": _pick(rng, vocab["inflated_amounts"]),
+    }
+    rendered = template.format_map(
         {
-            "attacker_iban": _pick(rng, vocab["attacker_ibans"]),
-            "attacker_email": _pick(rng, vocab["attacker_emails"]),
-            "attacker_sort_code": _pick(rng, vocab["attacker_sort_codes"]),
-            "attacker_account_number": _pick(rng, vocab["attacker_account_numbers"]),
-            "inflated_amount": _pick(rng, vocab["inflated_amounts"]),
+            "attacker_iban": candidates["iban"],
+            "attacker_email": candidates["email"],
+            "attacker_sort_code": candidates["sort_code"],
+            "attacker_account_number": candidates["account_number"],
+            "inflated_amount": candidates["inflated_amount"],
         }
     )
+    used = {
+        key: value
+        for key, value in candidates.items()
+        if f"{{attacker_{key}}}" in template or f"{{{key}}}" in template
+    }
+    return rendered, used
 
 
 def generate_attack_cases(seed: int = DEFAULT_SEED) -> list[AttackCase]:
@@ -306,7 +326,7 @@ def generate_attack_cases(seed: int = DEFAULT_SEED) -> list[AttackCase]:
                 for attempt in range(MAX_RENDER_ATTEMPTS):
                     rng = _rng(seed, case_id, attempt)
                     scaffold = _scaffold(rng, vocab)
-                    instruction = _render_instruction(rng, vocab, goal)
+                    instruction, artifacts = _render_instruction(rng, vocab, goal)
 
                     ctx: dict[str, str] = dict(scaffold)
                     # inside a CSV the payload occupies one field, so it must be quoted there
@@ -347,6 +367,7 @@ def generate_attack_cases(seed: int = DEFAULT_SEED) -> list[AttackCase]:
                         ],
                         owasp_ref=OWASP_REF,
                         source_pattern=f"{SOURCE_PATTERNS[vector]} / {variant['conceal']}",
+                        injected_artifacts=artifacts,
                         rendered=rendered,
                         document=_document_view(scaffold, injection_field, rendered),
                         severity_score=severity_score(vector, goal, variant_idx),
