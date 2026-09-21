@@ -92,7 +92,15 @@ says "dataset + config recipe", never "plugin".
 ---
 
 ## B4 · The CI workflow has never executed on GitHub Actions
-**Status:** WORKED-AROUND · opened 2026-09-03 (Phase 4)
+**Status:** ✅ **RESOLVED** 2026-09-22 · opened 2026-09-03 (Phase 4)
+
+**Resolution.** Repo published at https://github.com/Muhammad-Aneeq/finxpia and pushed. **All six
+jobs passed on the first real run** (lint-and-typecheck, tests-and-corpus-integrity, eval-gate,
+packaging-promptfoo, packaging-pyrit, dashboard), with no secrets configured.
+
+One piece of genuine first-run friction, exactly as predicted: the workflow triggers on
+`push: branches: [main]` but the initial push went to `master`, so nothing fired. Renamed the
+branch to `main` (the convention this repo's tooling already assumed) and CI ran green.
 
 **What.** `.github/workflows/ci.yml` defines six jobs. None of them has ever run on GitHub
 Actions, because this repository has no git remote — `git remote -v` returns nothing.

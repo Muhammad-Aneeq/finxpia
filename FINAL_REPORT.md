@@ -129,14 +129,11 @@ faked: document scaffolding from the same seeded RNG, aurora tokens vendored int
 > **Fix:** when Projects 02/06 exist, point the demo provider at their endpoints — the corpus and
 > report layers need no change.
 
-### B4 — the CI workflow has never run on GitHub Actions
+### B4 — resolved
 
-No git remote exists, so the six jobs have never executed there. Each job's command set was run
-locally and passes, and no job needs a secret, so the substance is verified — but the Actions
-plumbing (action versions, caches, `npm ci` on a clean checkout) is not.
-
-> **Fix:** `git remote add origin <url> && git push -u origin main`, then fix whatever the first
-> run surfaces.
+Published at https://github.com/Muhammad-Aneeq/finxpia; **all six CI jobs green on the first
+run**, no secrets needed. The one snag was the workflow triggering on `main` while the initial
+push went to `master` — branch renamed, CI ran.
 
 ### B5 — the 60–90s demo video is not recorded
 

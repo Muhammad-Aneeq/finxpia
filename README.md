@@ -379,11 +379,10 @@ byte-identically from its seed and is hash-verified. Both delivery paths are exe
 the **real** installed tools — Promptfoo 0.122.2 and PyRIT 1.0.1 — offline, with no API key. The
 dashboard builds statically and renders a real 120-case run across all five screens.
 
-Every one of the six CI jobs' command sets has been run locally and passes, and none of them
-needs a secret. To be exact about what that does *not* prove: this repository has **no git
-remote yet**, so `.github/workflows/ci.yml` has never actually executed on GitHub Actions. Expect
-the usual first-run friction of a new workflow (action versions, cache keys) even though the
-underlying commands are green.
+All six CI jobs pass on GitHub Actions, with no secrets configured
+([latest run](https://github.com/Muhammad-Aneeq/finxpia/actions)): lint/typecheck, tests +
+corpus integrity, the eval gate, both packaging smoke suites, and the dashboard build + render
+tests.
 
 **⚠️ Gate A currently fails against a live model: 86.7% against a 100% bar.** That is a real
 result, left red on purpose — see the live gate results above and **B7**. Gate B passes at 0.0%.
