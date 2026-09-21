@@ -28,7 +28,7 @@ from ..generator import DEFAULT_SEED, generate_attack_cases, generate_benign_cas
 from ..schemas import AttackCase, BenignCase
 
 DATASET_NAME = "finxpia"
-SOURCE_URL = "https://github.com/aneeq-labs/finxpia"
+SOURCE_URL = "https://github.com/Muhammad-Aneeq/finxpia"
 
 #: Prepended to every exported file. A PyRIT user may meet these strings with no other context.
 HEADER = (

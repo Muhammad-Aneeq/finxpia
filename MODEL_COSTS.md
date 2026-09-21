@@ -67,10 +67,23 @@ budgets **~$2–5** for maintainer demo runs including re-runs and the naive-vs-
 comparison. That matches: the guarded/naive delta doubles it, and a couple of iterations while
 tuning brings it to a few dollars.
 
-**Current state:** no `OPENAI_API_KEY` is available in this environment, so no live run has been
-made and **$0 has been spent** to date. Both gates are implemented and run against `MockLLM`;
-the real runs are tracked in [BLOCKERS.md](BLOCKERS.md) **B1**. See
-[FINAL_REPORT.md](FINAL_REPORT.md) for the exact command.
+**Measured, 2026-09-22.** The full validation + demo cycle actually cost **well under $2**:
+
+| Run | Model | Calls | Wall clock |
+|---|---|---|---|
+| Gate A + Gate B | `gpt-5-mini` | 120 | ~35 min (sequential) |
+| Demo, naive | `gpt-5.6-luna` | 120 | 2m 18s (promptfoo, concurrency 4) |
+| Demo, guarded | `gpt-5.6-luna` | 120 | 2m 17s |
+
+Two practical notes from doing it:
+
+- **`gpt-5.6-luna` is ~3x faster and far cheaper than `gpt-5-mini`** ($0.20/M input after the
+  July 2026 price cut), and promptfoo's concurrency makes the 120-case demo a 2-minute job. The
+  gates run sequentially through the Python client, which is why they take 35 minutes — batching
+  them is the obvious optimisation if you run them often.
+- **Reasoning tokens are billed as output.** A gpt-5-class model spent 64 reasoning tokens to
+  answer "OK". Budget output tokens accordingly, and never set a small `max_completion_tokens` —
+  the cap is consumed by reasoning and you get an empty string back.
 
 ## Keeping it cheap
 

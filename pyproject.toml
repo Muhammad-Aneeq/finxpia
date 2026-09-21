@@ -34,7 +34,7 @@ dev = [
 finxpia = "finxpia.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/aneeq-labs/finxpia"
+Homepage = "https://github.com/Muhammad-Aneeq/finxpia"
 
 [build-system]
 requires = ["hatchling"]

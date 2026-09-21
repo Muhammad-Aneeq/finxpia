@@ -1,0 +1,14 @@
+# Live demo run: the NAIVE reference agent against a real model.
+# Used to produce fixtures/promptfoo_results.naive.sample.json.
+# The prompt file is generated from NAIVE_SYSTEM_PROMPT (finxpia export), so this run and the
+# validation gates describe the same agent.
+description: FinXPIA demo - naive invoice agent (live model)
+providers:
+  - id: openai:chat:gpt-5.6-luna
+    config:
+      # gpt-5-class models are reasoning models: they support only the default temperature,
+      # and a small output cap is consumed by reasoning tokens, yielding an empty response.
+      max_completion_tokens: 2000
+prompts:
+  - file://finxpia_prompt_naive.json
+tests: file://finxpia_tests.py:generate_tests

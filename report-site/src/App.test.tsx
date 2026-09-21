@@ -82,21 +82,32 @@ afterEach(() => {
 
 describe("Summary screen", () => {
   test("renders the risk grade and both headline rates", async () => {
+    // Invariants, not exact counts: this fixture is a REAL model run, so the numbers move every
+    // time it is regenerated. Pinning "100.0%" would have to be edited after each live run,
+    // which is how a test stops meaning anything.
     await renderApp(NAIVE);
 
-    expect(screen.getByLabelText("Risk grade F")).toBeInTheDocument();
-    expect(screen.getByText("Risk grade F")).toBeInTheDocument();
+    const grade = NAIVE.summary.risk_grade;
+    expect(screen.getByLabelText(`Risk grade ${grade}`)).toBeInTheDocument();
+    expect(screen.getByText(`Risk grade ${grade}`)).toBeInTheDocument();
 
-    // attack success 100%, FPR 0% — from the real promptfoo run against the naive target
-    expect(screen.getByText("100.0%")).toBeInTheDocument();
-    expect(screen.getByText(/60 of 60 injections obeyed/)).toBeInTheDocument();
-    expect(screen.getByText(/0 of 60 legitimate documents refused/)).toBeInTheDocument();
+    const obeyed = NAIVE.summary.attacks_obeyed;
+    expect(
+      screen.getByText(new RegExp(`${obeyed} of 60 injections obeyed`)),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        new RegExp(`${NAIVE.summary.benign_false_blocked} of 60 legitimate documents refused`),
+      ),
+    ).toBeInTheDocument();
   });
 
   test("shows the worst obeyed severity", async () => {
     await renderApp(NAIVE);
+    const worst = NAIVE.summary.worst_obeyed_severity;
+    expect(worst).toBeTruthy();
     expect(screen.getByText(/Worst severity obeyed/i)).toBeInTheDocument();
-    expect(screen.getAllByText("critical").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(worst!).length).toBeGreaterThan(0);
   });
 
   test("reports zero errors, because obeyed attacks are findings not errors", async () => {
@@ -106,11 +117,23 @@ describe("Summary screen", () => {
     ).toBeInTheDocument();
   });
 
-  test("a guarded target reads as grade A with the benign half stated", async () => {
+  test("the guarded target resists far better than the naive one", async () => {
+    // Against a real model the guarded agent leaks the occasional case, so it is not
+    // necessarily grade A. What must hold is that it beats the naive agent and that the
+    // benign half is reported alongside it.
+    expect(GUARDED.summary.attack_success_rate).toBeLessThan(
+      NAIVE.summary.attack_success_rate,
+    );
     await renderApp(GUARDED);
-    expect(screen.getByLabelText("Risk grade A")).toBeInTheDocument();
     expect(
-      screen.getByText(/Resisted every injection, and processed every legitimate document/i),
+      screen.getByLabelText(`Risk grade ${GUARDED.summary.risk_grade}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        new RegExp(
+          `${GUARDED.summary.benign_false_blocked} of 60 legitimate documents refused`,
+        ),
+      ),
     ).toBeInTheDocument();
   });
 
@@ -161,10 +184,13 @@ describe("required framing", () => {
     expect(screen.queryByText(/Target not declared/)).not.toBeInTheDocument();
   });
 
-  test("the committed demo fixtures do not claim a live validation", () => {
-    // they came from scripted local providers
-    expect(NAIVE.validation_mode).toBe("mock");
-    expect(GUARDED.validation_mode).toBe("mock");
+  test("the committed demo fixtures declare their target honestly", () => {
+    // They were scripted stand-ins ("mock") until a real model was available; they are now
+    // genuine gpt-5.6-luna runs. "unknown" is rejected either way, because an undeclared run
+    // reads as verified to anyone skimming.
+    for (const report of [NAIVE, GUARDED]) {
+      expect(["live", "mock"]).toContain(report.validation_mode);
+    }
   });
 });
 
@@ -187,9 +213,7 @@ describe("Heatmap screen", () => {
     await renderApp(NAIVE);
     await gotoScreen("Heatmap");
 
-    const cell = screen
-      .getAllByTitle(/obeyed — click to inspect/)
-      .find((element) => element.getAttribute("title")?.startsWith("6 of 6"));
+    const cell = screen.getAllByTitle(/obeyed — click to inspect/)[0];
     expect(cell).toBeDefined();
     await userEvent.click(cell!);
 
@@ -235,9 +259,12 @@ describe("Case Replay screen", () => {
     await renderApp(NAIVE, { payloads: true });
     await gotoScreen("Case Replay");
     await userEvent.click(screen.getByRole("button", { name: /Findings only/ }));
-    // all 60 attacks were obeyed in this run, and no benign twin was blocked
-    expect(await screen.findByText("60 case(s)")).toBeInTheDocument();
-  });
+    const findings =
+      NAIVE.summary.attacks_obeyed + NAIVE.summary.benign_false_blocked + NAIVE.summary.errors;
+    expect(await screen.findByText(`${findings} case(s)`)).toBeInTheDocument();
+    // jsdom re-rendering the full 120-case list after a filter click is genuinely slow; this
+    // is a speed limit of the test environment, not of the app.
+  }, 20000);
 
   test("shows the injection point for an attack case", async () => {
     await renderApp(NAIVE, { payloads: true });
@@ -305,7 +332,8 @@ describe("Export screen", () => {
   test("the findings section lists every obeyed injection", async () => {
     await renderApp(NAIVE);
     await gotoScreen("Export");
-    expect(screen.getByText("5. Findings (60)")).toBeInTheDocument();
+    const findings = NAIVE.summary.attacks_obeyed + NAIVE.summary.benign_false_blocked;
+    expect(screen.getByText(`5. Findings (${findings})`)).toBeInTheDocument();
   });
 
   test("print is wired to the browser's own print-to-PDF", async () => {

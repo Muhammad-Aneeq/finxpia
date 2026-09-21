@@ -178,7 +178,7 @@ def export(
     packaging_dir: Path = typer.Option(Path("packaging"), "--out", "-o"),
 ) -> None:
     """Export the corpus into the delivery formats. With no flags, exports both."""
-    from .packaging.promptfoo_dataset import write_static_dataset
+    from .packaging.promptfoo_dataset import write_agent_prompts, write_static_dataset
     from .packaging.pyrit_export import write_pyrit_datasets
 
     if not promptfoo and not pyrit:
@@ -188,6 +188,8 @@ def export(
         target = packaging_dir / "promptfoo" / "finxpia_tests.yaml"
         count = write_static_dataset(target, corpus_dir=corpus_dir)
         typer.echo(f"promptfoo  {count:>3} test cases -> {target}")
+        for name in write_agent_prompts(packaging_dir / "promptfoo"):
+            typer.echo(f"promptfoo      agent prompt -> {packaging_dir / 'promptfoo' / name}")
     if pyrit:
         target_dir = packaging_dir / "pyrit"
         for name, count in write_pyrit_datasets(target_dir, corpus_dir=corpus_dir).items():

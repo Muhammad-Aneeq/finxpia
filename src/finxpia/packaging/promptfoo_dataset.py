@@ -21,6 +21,7 @@ gates use, so a case cannot be scored one way here and another way there.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -163,11 +164,65 @@ def write_static_dataset(
     return len(tests)
 
 
+# --------------------------------------------------------------------------------------------
+# reference-agent prompts, for running the demo through promptfoo against a real model
+# --------------------------------------------------------------------------------------------
+
+#: The agent templates use Python ``str.format`` placeholders; promptfoo uses Nunjucks. Two of
+#: them are also named differently in the dataset's ``vars`` than in the agent's own template.
+_VAR_ALIASES = {"content_field": "injection_field", "content": "document"}
+
+
+def _to_nunjucks(template: str) -> str:
+    """Convert a Python format template to a Nunjucks one, renaming the aliased vars."""
+    out = re.sub(r"\{(\w+)\}", lambda m: "{{ " + m.group(1) + " }}", template)
+    for python_name, var_name in _VAR_ALIASES.items():
+        out = out.replace("{{ " + python_name + " }}", "{{ " + var_name + " }}")
+    return out
+
+
+def build_agent_prompt(system_prompt: str, user_template: str) -> list[dict[str, str]]:
+    """A promptfoo chat-format prompt for one reference agent."""
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": _to_nunjucks(user_template)},
+    ]
+
+
+def write_agent_prompts(out_dir: Path) -> dict[str, int]:
+    """Write chat-format prompts for the naive and guarded reference agents.
+
+    Generated from the **same constants the Python agents use**
+    (``NAIVE_SYSTEM_PROMPT`` / ``GUARDED_SYSTEM_PROMPT``) rather than retyped, so a promptfoo
+    demo run and a validation-gate run are provably describing the same two agents. Retyping
+    them would let the demo and the gates drift apart silently, which would make the
+    naive-vs-guarded delta mean nothing.
+    """
+    from ..agents.guarded_agent import GUARDED_SYSTEM_PROMPT, GUARDED_USER_TEMPLATE
+    from ..agents.naive_agent import NAIVE_SYSTEM_PROMPT, NAIVE_USER_TEMPLATE
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, int] = {}
+    for name, system, user in (
+        ("finxpia_prompt_naive.json", NAIVE_SYSTEM_PROMPT, NAIVE_USER_TEMPLATE),
+        ("finxpia_prompt_guarded.json", GUARDED_SYSTEM_PROMPT, GUARDED_USER_TEMPLATE),
+    ):
+        payload = build_agent_prompt(system, user)
+        path = out_dir / name
+        with path.open("w", encoding="utf-8", newline="") as fh:
+            json.dump(payload, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+        written[name] = len(payload)
+    return written
+
+
 __all__ = [
     "ASSERT_REF",
     "attack_test",
     "benign_test",
+    "build_agent_prompt",
     "build_tests",
     "generate_tests",
+    "write_agent_prompts",
     "write_static_dataset",
 ]
