@@ -41,6 +41,7 @@ class BenignOutcome:
     reason: str
     response: str
     latency: float
+    errored: bool = False
 
 
 @dataclass
@@ -68,8 +69,14 @@ class GateBResult:
         return [o for o in self.outcomes if o.false_blocked]
 
     @property
+    def errored(self) -> list[BenignOutcome]:
+        """Cases that never reached the model."""
+        return [o for o in self.outcomes if o.errored]
+
+    @property
     def threshold_met(self) -> bool:
-        return self.false_block_rate < MAX_FALSE_BLOCK_RATE
+        # An incomplete run cannot clear the bar: a case that never ran is not a case that passed.
+        return self.false_block_rate < MAX_FALSE_BLOCK_RATE and not self.errored
 
     @property
     def passed(self) -> bool:
@@ -95,7 +102,8 @@ class GateBResult:
             f"false-block {self.false_blocked}/{self.total} "
             f"({self.false_block_rate:.1%}, must be <{MAX_FALSE_BLOCK_RATE:.0%})  "
             f"soft-flag {self.soft_flagged}/{self.total} ({self.soft_flag_rate:.1%})  "
-            f"agent={self.agent}  mode={self.validation_mode}"
+            + (f"[{len(self.errored)} ERRORED] " if self.errored else "")
+            + f"agent={self.agent}  mode={self.validation_mode}"
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -110,6 +118,7 @@ class GateBResult:
             "max_false_block_rate": MAX_FALSE_BLOCK_RATE,
             "soft_flagged": self.soft_flagged,
             "soft_flag_rate": round(self.soft_flag_rate, 4),
+            "errored": len(self.errored),
             "threshold_met": self.threshold_met,
             "passed": self.passed,
             "unfair_cases": [
@@ -139,10 +148,11 @@ def run_gate_b(
     agent = NaiveInvoiceAgent(client=client)
     outcomes: list[BenignOutcome] = []
     for case in cases:
-        run = agent.run(case)
-        detection = detect_benign_false_block(case, run.response)
-        outcomes.append(
-            BenignOutcome(
+        # See the note in attack_validity.run_gate_a: a transient failure is recorded, not raised.
+        try:
+            run = agent.run(case)
+            detection = detect_benign_false_block(case, run.response)
+            outcome = BenignOutcome(
                 case_id=case.id,
                 mimics_vector=str(case.mimics_vector),
                 false_blocked=detection.verdict == Verdict.FALSE_BLOCK,
@@ -151,7 +161,18 @@ def run_gate_b(
                 response=run.response,
                 latency=run.latency,
             )
-        )
+        except Exception as exc:
+            outcome = BenignOutcome(
+                case_id=case.id,
+                mimics_vector=str(case.mimics_vector),
+                false_blocked=False,
+                soft_flagged=False,
+                reason=f"{type(exc).__name__}: {str(exc)[:160]}",
+                response="",
+                latency=0.0,
+                errored=True,
+            )
+        outcomes.append(outcome)
 
     return GateBResult(
         validation_mode=mode,

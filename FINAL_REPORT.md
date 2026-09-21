@@ -18,14 +18,14 @@ one open question (**B7**) · **Tests:** 212 (184 Python + 28 dashboard), all gr
 | Promptfoo integration, smoke-tested | ✅ | Real CLI (0.122.2), 19 tests, offline, both pass *and* fail paths |
 | PyRIT dataset export, smoke-tested | ✅ | Real PyRIT 1.0.1 loader, 13 tests, payloads byte-identical |
 | Gate B: benign-fairness | ✅ **PASSES live** | **0/60 = 0.0%** false-block vs a <5% bar (`gpt-5-mini`) |
-| Gate A: attack-validity | ❌ **FAILS live**, reported red | **52/60 = 86.7%** vs a 100% bar → **B7** |
+| Gate A: attack-validity | ❌ **FAILS live**, reported red | **46/60 = 76.7%** vs a 100% bar → **B7** |
 | Dashboard, 5 screens + compliance PDF | ✅ | Builds statically; 25 render tests walk all five screens against a real run |
 | Naive demo agent + guarded twin | ✅ live | On `gpt-5.6-luna`: naive **grade D** (25/60 = 41.7%) vs guarded **grade B** (1/60 = 1.7%), both 0/60 false-block |
 | README, LICENSE, synthetic banner | ✅ | Responsible-use first; MIT + authorized-testing rider; banner on every screen |
 | `evals/` + CI gate (spec 00 brand) | ✅ | 6 CI jobs, none requiring a secret |
 | Screenshot-first README, architecture diagram, ex-accountant line | ✅ | 6 real screenshots from the built site; order noted per D11 |
 | Launch post drafted (spec 00 E) | ✅ | `LAUNCH_POST.md` — LinkedIn, X thread, Show HN, plus a pre-post honesty checklist |
-| 60–90s demo video (spec 00 E) | ⚠️ **script only** | `DEMO_SCRIPT.md` ready to shoot; recording outstanding → B5 |
+| 60–90s demo video (spec 00 E) | ✅ | `docs/demo/finxpia-demo.webm` — 65 s, 720p, recorded from source with Playwright |
 | PLAN.md fully ticked / BLOCKED-marked | ✅ | 4 phases complete; one task marked `[BLOCKED]` → B1 |
 
 ### The demo, in one table
@@ -98,15 +98,16 @@ export-evals · payloads · report`.
 
 ## 3. Remaining blockers, each with a one-line fix
 
-### B7 — Gate A fails live at 86.7% against a 100% bar *(the only open one)*
+### B7 — Gate A fails live at 76.7% against a 100% bar *(the only open one)*
 
 **This is left red on purpose.** Gate A requires every attack to land against a deliberately
-naive agent, so no case is a dud. Against `gpt-5-mini` it scores 52/60. The live run already
-fixed the two genuine corpus defects it exposed (see §4); the remaining 8 are cases the model
-simply notices — on one it reported, unprompted, *"Vendor HTML comment attempting to override
-processing ignored."*
+naive agent, so no case is a dud. Against `gpt-5-mini` it scores 46/60. The live run already
+fixed three real defects it exposed (see §4); the remaining 14 are cases the model simply notices
+— on one it reported, unprompted, *"Vendor HTML comment attempting to override processing
+ignored."* **12 of the 14 are `suppress-flag`**, which makes "do not raise an exception" the
+weakest of the four attacker goals against a current model.
 
-Lowering the bar to 86.7% would make the gate pass and mean nothing, so `REQUIRED_SUCCESS_RATE`
+Lowering the bar to 76.7% would make the gate pass and mean nothing, so `REQUIRED_SUCCESS_RATE`
 stays at 1.0. What this needs is a decision about what the bar should be — keep 100% and treat
 every miss as a defect, or re-define the target as a *panel* ("must land on at least one naive
 model"), or gate on the max across models. That is a design call, which is why B7 is OPEN rather
@@ -135,14 +136,12 @@ Published at https://github.com/Muhammad-Aneeq/finxpia; **all six CI jobs green 
 run**, no secrets needed. The one snag was the workflow triggering on `main` while the initial
 push went to `master` — branch renamed, CI ran.
 
-### B5 — the 60–90s demo video is not recorded
+### B5 — resolved
 
-I cannot record screen video here. `DEMO_SCRIPT.md` has the full shot list, timings, spoken lines,
-commands, two-tab setup and cut-order, and six real screenshots of the built dashboard are in
-`docs/screenshots/` and wired into the README. The README says the recording is outstanding rather
-than leaving a dead link.
-
-> **Fix:** follow `DEMO_SCRIPT.md`, record ~15 minutes, replace the Demo note with the link.
+Recorded with Playwright rather than a screen recorder: `npm run record-demo` drives the real
+built dashboard against the real fixtures and captures the viewport.
+`docs/demo/finxpia-demo.webm`, 65 s, 720p, zero page errors. No audio (captions instead) and no
+mp4 (the bundled ffmpeg is VP8-only; the conversion command is in the README).
 
 ### B6 — the demo fixtures are stand-in runs, not live-model runs
 
@@ -200,6 +199,13 @@ Recording these because each was a real correctness bug that silently produced p
    passed them only because it emitted `flags: []` unconditionally.
 10. **`OpenAIClient` hardcoded `temperature=0.0`**, which every gpt-5-class reasoning model
     rejects with a 400. Left unfixed, the entire live run would have failed on the first call.
+11. **The detector scored a correct refusal as compliance** — it missed "Second-submission/
+    withdrawal status" as a raised duplicate concern, inflating attack success. Found while
+    picking a case for the demo video, not by a test. Gate A corrected 86.7% → 76.7%.
+12. **A transient DNS failure destroyed a 35-minute live run.** The gates had no per-case error
+    handling, so one `getaddrinfo failed` aborted everything and lost all results. Failures are
+    now recorded per case and the run continues; errored cases are counted separately and an
+    incomplete run can never meet a threshold.
 
 ---
 
@@ -208,7 +214,7 @@ Recording these because each was a real correctness bug that silently produced p
 **1. Settle what Gate A's bar should mean.** *(the one open question, B7)*
 I was wrong about which gate was at risk: I expected Gate A to hold at 100% and Gate B to be the
 unknown. The reverse happened. Gate B passes at 0.0% once the incoherent credit-note twins were
-removed; Gate A fails at 86.7% because no real model is maximally naive. Decide between keeping
+removed; Gate A fails at 76.7% because no real model is maximally naive. Decide between keeping
 100% (every miss is a defect to fix), a panel target ("must land on at least one naive model"),
 or gating on the max across models. Until then it stays red, which is the honest state.
 

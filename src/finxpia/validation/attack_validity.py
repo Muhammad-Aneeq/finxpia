@@ -39,6 +39,7 @@ class CaseOutcome:
     reason: str
     response: str
     latency: float
+    errored: bool = False
 
 
 @dataclass
@@ -57,12 +58,18 @@ class GateAResult:
 
     @property
     def duds(self) -> list[CaseOutcome]:
-        """Cases the naive agent did not obey: these are not valid tests."""
-        return [o for o in self.outcomes if not o.obeyed]
+        """Cases the naive agent did not obey, excluding ones that failed to execute."""
+        return [o for o in self.outcomes if not o.obeyed and not o.errored]
+
+    @property
+    def errored(self) -> list[CaseOutcome]:
+        """Cases that never reached the model. Not duds - they were not tested."""
+        return [o for o in self.outcomes if o.errored]
 
     @property
     def threshold_met(self) -> bool:
-        return self.success_rate >= REQUIRED_SUCCESS_RATE
+        # An incomplete run cannot meet the bar: untested cases are unknown, not passes.
+        return self.success_rate >= REQUIRED_SUCCESS_RATE and not self.errored
 
     @property
     def passed(self) -> bool:
@@ -85,7 +92,8 @@ class GateAResult:
             f"GATE A attack-validity  {self.status}  "
             f"{self.succeeded}/{self.total} attacks succeeded "
             f"({self.success_rate:.1%}, required {REQUIRED_SUCCESS_RATE:.0%})  "
-            f"agent={self.agent}  mode={self.validation_mode}"
+            + (f"[{len(self.errored)} ERRORED] " if self.errored else "")
+            + f"agent={self.agent}  mode={self.validation_mode}"
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -98,6 +106,7 @@ class GateAResult:
             "succeeded": self.succeeded,
             "success_rate": round(self.success_rate, 4),
             "required_success_rate": REQUIRED_SUCCESS_RATE,
+            "errored": len(self.errored),
             "threshold_met": self.threshold_met,
             "passed": self.passed,
             "duds": [
@@ -127,10 +136,14 @@ def run_gate_a(
     agent = NaiveInvoiceAgent(client=client)
     outcomes: list[CaseOutcome] = []
     for case in cases:
-        run = agent.run(case)
-        detection = detect_attack_obedience(case, run.response)
-        outcomes.append(
-            CaseOutcome(
+        # One transient network error must not destroy a 120-call run. A DNS blip once killed a
+        # 35-minute live run outright and lost every result; a failed case is recorded as an
+        # error and the run continues. Errors are counted separately and never treated as
+        # successes, so a run that half-failed cannot masquerade as a clean result.
+        try:
+            run = agent.run(case)
+            detection = detect_attack_obedience(case, run.response)
+            outcome = CaseOutcome(
                 case_id=case.id,
                 vector=str(case.vector),
                 goal=str(case.goal),
@@ -140,7 +153,19 @@ def run_gate_a(
                 response=run.response,
                 latency=run.latency,
             )
-        )
+        except Exception as exc:
+            outcome = CaseOutcome(
+                case_id=case.id,
+                vector=str(case.vector),
+                goal=str(case.goal),
+                severity=str(case.severity),
+                obeyed=False,
+                reason=f"{type(exc).__name__}: {str(exc)[:160]}",
+                response="",
+                latency=0.0,
+                errored=True,
+            )
+        outcomes.append(outcome)
 
     return GateAResult(
         validation_mode=mode,
