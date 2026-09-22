@@ -443,6 +443,7 @@ docs/              taxonomy · severity_rubric · results_schema · responsible_
 
 | Doc | What's in it |
 |---|---|
+| **[OVERVIEW.md](OVERVIEW.md)** | **Start here** — what this is, how it works, how to run and test it, in one page |
 | [docs/taxonomy.md](docs/taxonomy.md) | The 5 × 4 grid, source-pattern citations, the CSV safety note |
 | [docs/severity_rubric.md](docs/severity_rubric.md) | The rubric, why `low` is unreachable, expected-behaviour derivation |
 | [docs/results_schema.md](docs/results_schema.md) | `finxpia-run.json` v1, the risk-grade table, the Promptfoo mapping |
